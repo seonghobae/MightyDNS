@@ -5,7 +5,7 @@ use config::{Config as ConfigBuilder, Environment, File};
 pub struct Config {
     pub server: ServerConfig,
     pub database: DatabaseConfig,
-    pub redis: RedisConfig,
+    pub valkey: ValkeyConfig,
     pub nats: NatsConfig,
     pub dns: DnsConfig,
     pub auth: AuthConfig,
@@ -28,7 +28,7 @@ pub struct DatabaseConfig {
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct RedisConfig {
+pub struct ValkeyConfig {
     pub url: String,
     pub pool_size: usize,
     pub timeout_ms: u64,
@@ -90,8 +90,8 @@ impl Default for Config {
                 connect_timeout_secs: 10,
                 idle_timeout_secs: 600,
             },
-            redis: RedisConfig {
-                url: "redis://localhost:6379".to_string(),
+            valkey: ValkeyConfig {
+                url: "valkey://localhost:6379".to_string(),
                 pool_size: 100,
                 timeout_ms: 1000,
             },

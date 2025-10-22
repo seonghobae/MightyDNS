@@ -23,17 +23,17 @@ services:
     networks:
       - mightydns-network
 
-  # Redis 7 Cluster (simplified single-node for development)
-  redis:
-    image: redis:7-alpine
-    container_name: mightydns-redis
+  # Valkey 7 (Redis-compatible, BSD-3-Clause licensed)
+  valkey:
+    image: valkey/valkey:7-alpine
+    container_name: mightydns-valkey
     ports:
       - "6379:6379"
-    command: redis-server --appendonly yes --requirepass redis_password
+    command: valkey-server --appendonly yes --requirepass valkey_password
     volumes:
-      - redis_data:/data
+      - valkey_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      test: ["CMD", "valkey-cli", "--raw", "incr", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -74,13 +74,13 @@ services:
     environment:
       RUST_LOG: info
       MIGHTYDNS__DATABASE__URL: postgresql://mightydns_user:change-me-in-production@postgres:5432/mightydns
-      MIGHTYDNS__REDIS__URL: redis://:redis_password@redis:6379
+      MIGHTYDNS__VALKEY__URL: valkey://:valkey_password@valkey:6379
       MIGHTYDNS__NATS__URL: nats://nats:4222
       MIGHTYDNS__DNS__UPSTREAM_SERVERS: "1.1.1.1:53,8.8.8.8:53"
     depends_on:
       postgres:
         condition: service_healthy
-      redis:
+      valkey:
         condition: service_healthy
       nats:
         condition: service_healthy
@@ -100,7 +100,7 @@ services:
     environment:
       RUST_LOG: info
       MIGHTYDNS__DATABASE__URL: postgresql://mightydns_user:change-me-in-production@postgres:5432/mightydns
-      MIGHTYDNS__REDIS__URL: redis://:redis_password@redis:6379
+      MIGHTYDNS__VALKEY__URL: valkey://:valkey_password@valkey:6379
       MIGHTYDNS__NATS__URL: nats://nats:4222
       MIGHTYDNS__AUTH__JWT_SECRET: dev-secret-change-in-production
       MIGHTYDNS__AUTH__WEBAUTHN_RP_ID: localhost
@@ -108,7 +108,7 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      redis:
+      valkey:
         condition: service_healthy
       nats:
         condition: service_healthy
@@ -154,7 +154,7 @@ services:
 
 volumes:
   postgres_data:
-  redis_data:
+  valkey_data:
   nats_data:
   prometheus_data:
   grafana_data:

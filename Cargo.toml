@@ -38,9 +38,9 @@ rustls-pemfile = "2.0"
 sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "postgres", "uuid", "chrono", "json"] }
 deadpool-postgres = "0.12"
 
-# Redis
-redis = { version = "0.24", features = ["tokio-comp", "cluster-async"] }
-deadpool-redis = "0.14"
+# Valkey (Redis-compatible, BSD-3-Clause licensed)
+redis = { version = "0.24", features = ["tokio-comp", "cluster-async"] }  # Compatible with Valkey
+deadpool-redis = "0.14"  # Connection pooling for Valkey
 
 # NATS
 async-nats = "0.33"

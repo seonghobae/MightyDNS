@@ -48,7 +48,7 @@ Edge/CDN Layer (Cloudflare)
           ↓
 DNS Servers (Rust) ←→ API Servers (Rust)
           ↓                    ↓
-Redis Cluster      ←→    PostgreSQL 16
+Valkey Cluster     ←→    PostgreSQL 16
           ↓
 NATS JetStream (Async Jobs)
 ```
@@ -68,7 +68,7 @@ NATS JetStream (Async Jobs)
 - Rust 1.75+ (`rustup install stable`)
 - Docker & Docker Compose
 - PostgreSQL 16+ (or use Docker)
-- Redis 7+ (or use Docker)
+- Valkey 7+ (Redis-compatible, or use Docker)
 - NATS 2.10+ (or use Docker)
 
 ### Development Setup
@@ -81,7 +81,7 @@ NATS JetStream (Async Jobs)
 
 2. **Start dependencies with Docker Compose**
    ```bash
-   docker-compose up -d postgres redis nats
+   docker-compose up -d postgres valkey nats
    ```
 
 3. **Initialize database**
@@ -162,9 +162,9 @@ MightyDNS/
 MIGHTYDNS__DATABASE__URL=postgresql://user:pass@localhost/mightydns
 MIGHTYDNS__DATABASE__MAX_CONNECTIONS=100
 
-# Redis
-MIGHTYDNS__REDIS__URL=redis://localhost:6379
-MIGHTYDNS__REDIS__POOL_SIZE=100
+# Valkey (Redis-compatible, BSD-3-Clause licensed)
+MIGHTYDNS__VALKEY__URL=valkey://localhost:6379
+MIGHTYDNS__VALKEY__POOL_SIZE=100
 
 # NATS
 MIGHTYDNS__NATS__URL=nats://localhost:4222
