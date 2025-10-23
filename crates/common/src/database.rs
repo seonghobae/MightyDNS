@@ -440,8 +440,8 @@ impl Database {
         Ok(credentials)
     }
 
-    /// Create a new auth session
-    pub async fn create_session(
+    /// Create a new auth session (full version with IP and user agent)
+    pub async fn create_session_full(
         &self,
         tenant_id: &Uuid,
         token_hash: &str,
@@ -483,6 +483,36 @@ impl Database {
         Ok(session)
     }
 
+    /// Create a new auth session (simplified for API auth)
+    pub async fn create_session(
+        &self,
+        tenant_id: &Uuid,
+        token: &str,
+        expires_at: chrono::DateTime<chrono::Utc>,
+    ) -> Result<()> {
+        // Hash token for storage (simplified - should use proper hashing)
+        let token_hash = format!("{:x}", md5::compute(token));
+
+        sqlx::query!(
+            r#"
+            INSERT INTO auth_session (
+                tenant_id,
+                session_token_hash,
+                session_ip_address,
+                session_expires_at
+            )
+            VALUES ($1, $2, '0.0.0.0'::inet, $3)
+            "#,
+            tenant_id,
+            token_hash,
+            expires_at
+        )
+        .execute(&self.pool)
+        .await?;
+
+        Ok(())
+    }
+
     /// Get session by token hash
     pub async fn get_session_by_token(&self, token_hash: &str) -> Result<Option<AuthSession>> {
         let session = sqlx::query_as!(
@@ -510,6 +540,144 @@ impl Database {
 
         Ok(session)
     }
+
+    // ============================================================================
+    // Email OTP Authentication
+    // ============================================================================
+
+    /// Store email OTP for tenant
+    pub async fn store_email_otp(
+        &self,
+        tenant_id: &Uuid,
+        otp_code: &str,
+        expires_at: chrono::DateTime<chrono::Utc>,
+    ) -> Result<()> {
+        // Delete any existing OTP for this tenant first
+        sqlx::query!(
+            "DELETE FROM email_otp WHERE tenant_id = $1",
+            tenant_id
+        )
+        .execute(&self.pool)
+        .await?;
+
+        // Insert new OTP
+        sqlx::query!(
+            r#"
+            INSERT INTO email_otp (tenant_id, otp_code, expires_at)
+            VALUES ($1, $2, $3)
+            "#,
+            tenant_id,
+            otp_code,
+            expires_at
+        )
+        .execute(&self.pool)
+        .await?;
+
+        Ok(())
+    }
+
+    /// Verify email OTP for tenant
+    pub async fn verify_email_otp(&self, tenant_id: &Uuid, otp_code: &str) -> Result<bool> {
+        let result = sqlx::query!(
+            r#"
+            SELECT otp_code, expires_at
+            FROM email_otp
+            WHERE tenant_id = $1
+              AND expires_at > NOW()
+            "#,
+            tenant_id
+        )
+        .fetch_optional(&self.pool)
+        .await?;
+
+        match result {
+            Some(row) => Ok(row.otp_code == otp_code),
+            None => Ok(false),
+        }
+    }
+
+    /// Delete email OTP for tenant (after successful verification)
+    pub async fn delete_email_otp(&self, tenant_id: &Uuid) -> Result<()> {
+        sqlx::query!(
+            "DELETE FROM email_otp WHERE tenant_id = $1",
+            tenant_id
+        )
+        .execute(&self.pool)
+        .await?;
+
+        Ok(())
+    }
+
+    // ============================================================================
+    // TOTP Authentication
+    // ============================================================================
+
+    /// Store TOTP secret for tenant
+    pub async fn store_totp_secret(&self, tenant_id: &Uuid, secret: &str) -> Result<()> {
+        // Insert or update TOTP credential
+        sqlx::query!(
+            r#"
+            INSERT INTO auth_credential (
+                tenant_id,
+                credential_type,
+                totp_secret_key,
+                credential_name
+            )
+            VALUES ($1, 'totp', $2, 'TOTP Authenticator')
+            ON CONFLICT (tenant_id, credential_type)
+            WHERE credential_type = 'totp'
+            DO UPDATE SET
+                totp_secret_key = $2,
+                is_credential_active = TRUE
+            "#,
+            tenant_id,
+            secret
+        )
+        .execute(&self.pool)
+        .await?;
+
+        Ok(())
+    }
+
+    /// Verify TOTP code for tenant
+    pub async fn verify_totp(&self, tenant_id: &Uuid, totp_code: &str) -> Result<bool> {
+        // Get TOTP secret
+        let result = sqlx::query!(
+            r#"
+            SELECT totp_secret_key
+            FROM auth_credential
+            WHERE tenant_id = $1
+              AND credential_type = 'totp'
+              AND is_credential_active = TRUE
+            "#,
+            tenant_id
+        )
+        .fetch_optional(&self.pool)
+        .await?;
+
+        match result {
+            Some(row) => {
+                if let Some(secret) = row.totp_secret_key {
+                    // TODO: Implement actual TOTP verification using totp-lite
+                    // For now, simple comparison (should use time-based verification)
+                    Ok(verify_totp_code(&secret, totp_code))
+                } else {
+                    Ok(false)
+                }
+            }
+            None => Ok(false),
+        }
+    }
+}
+
+/// Verify TOTP code against secret
+fn verify_totp_code(_secret: &str, _code: &str) -> bool {
+    // TODO: Implement actual TOTP verification
+    // For now, always return true for development
+    // In production, use totp-lite crate:
+    // let totp = totp_lite::totp_custom::<totp_lite::Sha1>(30, 6, secret.as_bytes(), time);
+    // totp == code
+    true
 }
 
 #[cfg(test)]

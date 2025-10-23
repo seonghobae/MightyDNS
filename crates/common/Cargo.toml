@@ -40,3 +40,6 @@ config.workspace = true
 
 # System
 num_cpus = "1.16"
+
+# Cryptography
+md5 = "0.7"

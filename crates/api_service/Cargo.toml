@@ -54,3 +54,6 @@ reqwest.workspace = true
 # Configuration
 config.workspace = true
 dotenvy.workspace = true
+
+# URL encoding
+urlencoding = "2.1"
