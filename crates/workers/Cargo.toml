@@ -32,3 +32,7 @@ tracing-subscriber.workspace = true
 
 # HTTP client (for fetching blocklists)
 reqwest.workspace = true
+
+# Configuration
+config.workspace = true
+dotenvy.workspace = true
