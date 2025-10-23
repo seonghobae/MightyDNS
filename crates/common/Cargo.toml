@@ -37,3 +37,6 @@ moka.workspace = true
 
 # Configuration
 config.workspace = true
+
+# System
+num_cpus = "1.16"

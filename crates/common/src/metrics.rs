@@ -50,6 +50,23 @@ lazy_static! {
     )
     .unwrap();
 
+    /// Upstream DNS queries
+    pub static ref DNS_UPSTREAM_QUERIES_TOTAL: IntCounterVec = register_int_counter_vec!(
+        "dns_upstream_queries_total",
+        "Total number of upstream DNS queries",
+        &["upstream_server", "result"]  // 1.1.1.1/8.8.8.8, success/failure/timeout
+    )
+    .unwrap();
+
+    /// Upstream DNS query duration
+    pub static ref DNS_UPSTREAM_QUERY_DURATION: HistogramVec = register_histogram_vec!(
+        "dns_upstream_query_duration_seconds",
+        "Upstream DNS query duration in seconds",
+        &["upstream_server"],
+        vec![0.001, 0.005, 0.010, 0.025, 0.050, 0.100, 0.250, 0.500, 1.0]
+    )
+    .unwrap();
+
     // ============================================================================
     // Cache Metrics
     // ============================================================================
