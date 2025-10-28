@@ -688,6 +688,7 @@ impl Database {
     /// Store TOTP secret for tenant
     pub async fn store_totp_secret(&self, tenant_id: &Uuid, secret: &str) -> Result<()> {
         // Insert or update TOTP credential
+        // Note: Requires UNIQUE constraint on (tenant_id, credential_type)
         sqlx::query!(
             r#"
             INSERT INTO auth_credential (
@@ -698,7 +699,6 @@ impl Database {
             )
             VALUES ($1, 'totp', $2, 'TOTP Authenticator')
             ON CONFLICT (tenant_id, credential_type)
-            WHERE credential_type = 'totp'
             DO UPDATE SET
                 totp_secret_key = $2,
                 is_credential_active = TRUE
