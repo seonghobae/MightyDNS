@@ -58,7 +58,7 @@ impl AuthService {
 
         // Generate 6-digit OTP
         let otp_code = generate_otp();
-        debug!("Generated OTP: {}", otp_code);
+        debug!("Generated OTP for tenant");
 
         // Store OTP in database with expiration
         let expires_at = Utc::now() + Duration::minutes(self.config.auth.otp_expiry_minutes);
@@ -250,18 +250,10 @@ impl AuthService {
     pub async fn webauthn_login_finish(&self, email: &str, _credential: Value) -> Result<(TenantAccount, String)> {
         debug!("Finishing WebAuthn login for: {}", email);
 
-        // TODO: Implement WebAuthn login finish
-        // For now, just get tenant and generate token
-        let tenant = self
-            .database
-            .get_tenant_by_email(email)
-            .await?
-            .ok_or_else(|| anyhow!("Tenant not found"))?;
-
-        let token = self.generate_jwt_token(&tenant)?;
-        self.create_session(&tenant.tenant_id, &token).await?;
-
-        Ok((tenant, token))
+        // TODO: Implement WebAuthn login finish with actual credential verification
+        // SECURITY: Do not remove this error until full WebAuthn verification is implemented
+        // Issuing tokens without credential verification is a critical security vulnerability
+        Err(anyhow!("WebAuthn authentication not yet implemented. Use Email OTP or TOTP instead."))
     }
 
     // ============================================================================
