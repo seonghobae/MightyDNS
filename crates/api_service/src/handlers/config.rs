@@ -145,16 +145,14 @@ mod tests {
         let response = ConfigResponse {
             config_id: "123e4567-e89b-12d3-a456-426614174000".to_string(),
             config_name: "Default".to_string(),
-            is_blocking_enabled: true,
+            config_description: Some("Default configuration".to_string()),
+            is_dnssec_enabled: false,
             is_logging_enabled: true,
             blocked_response_ip: "0.0.0.0".to_string(),
-            dns_over_https_enabled: true,
-            dns_over_tls_enabled: false,
             created_at: "2024-01-01T00:00:00Z".to_string(),
         };
-        
+
         assert!(!response.config_id.is_empty());
-        assert!(response.is_blocking_enabled);
         assert!(response.is_logging_enabled);
         assert!(is_valid_ipv4(&response.blocked_response_ip));
     }
@@ -163,13 +161,15 @@ mod tests {
     fn test_update_config_request_all_fields() {
         let request = UpdateConfigRequest {
             config_name: Some("Updated Config".to_string()),
-            is_blocking_enabled: Some(true),
+            config_description: Some("Updated description".to_string()),
+            is_dnssec_enabled: Some(true),
             is_logging_enabled: Some(false),
             blocked_response_ip: Some("192.168.1.1".to_string()),
         };
-        
+
         assert!(request.config_name.is_some());
-        assert!(request.is_blocking_enabled.is_some());
+        assert!(request.config_description.is_some());
+        assert!(request.is_dnssec_enabled.is_some());
         assert!(request.is_logging_enabled.is_some());
         assert!(request.blocked_response_ip.is_some());
     }
@@ -178,13 +178,15 @@ mod tests {
     fn test_update_config_request_partial() {
         let request = UpdateConfigRequest {
             config_name: Some("New Name".to_string()),
-            is_blocking_enabled: None,
+            config_description: None,
+            is_dnssec_enabled: None,
             is_logging_enabled: None,
             blocked_response_ip: None,
         };
-        
+
         assert!(request.config_name.is_some());
-        assert!(request.is_blocking_enabled.is_none());
+        assert!(request.config_description.is_none());
+        assert!(request.is_dnssec_enabled.is_none());
         assert!(request.is_logging_enabled.is_none());
         assert!(request.blocked_response_ip.is_none());
     }
@@ -193,13 +195,15 @@ mod tests {
     fn test_update_config_request_empty() {
         let request = UpdateConfigRequest {
             config_name: None,
-            is_blocking_enabled: None,
+            config_description: None,
+            is_dnssec_enabled: None,
             is_logging_enabled: None,
             blocked_response_ip: None,
         };
-        
+
         assert!(request.config_name.is_none());
-        assert!(request.is_blocking_enabled.is_none());
+        assert!(request.config_description.is_none());
+        assert!(request.is_dnssec_enabled.is_none());
     }
 
     #[test]
@@ -207,17 +211,16 @@ mod tests {
         let response = ConfigResponse {
             config_id: "test-id".to_string(),
             config_name: "Test".to_string(),
-            is_blocking_enabled: true,
+            config_description: Some("Test description".to_string()),
+            is_dnssec_enabled: true,
             is_logging_enabled: false,
             blocked_response_ip: "0.0.0.0".to_string(),
-            dns_over_https_enabled: true,
-            dns_over_tls_enabled: true,
             created_at: "2024-01-01T00:00:00Z".to_string(),
         };
-        
+
         let json = serde_json::to_string(&response).expect("Serialization failed");
         assert!(json.contains("config_id"));
-        assert!(json.contains("is_blocking_enabled"));
+        assert!(json.contains("is_dnssec_enabled"));
         assert!(json.contains("blocked_response_ip"));
     }
 

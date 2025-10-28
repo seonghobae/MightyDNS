@@ -184,7 +184,7 @@ pub mod streams {
             max_age: Duration::from_secs(86400), // 24-hour retention (then moved to TimescaleDB)
             max_bytes: 10 * 1024 * 1024 * 1024, // 10 GB max
             storage: jetstream::stream::StorageType::File,
-            num_replicas: 3, // High availability
+            num_replicas: 1, // Single-node dev default; configure for HA in production
             ..Default::default()
         }
     }
@@ -198,7 +198,7 @@ pub mod streams {
             max_age: Duration::from_secs(3600), // 1-hour retention
             max_bytes: 1024 * 1024 * 1024,      // 1 GB max
             storage: jetstream::stream::StorageType::File,
-            num_replicas: 3,
+            num_replicas: 1, // Single-node dev default; configure for HA in production
             ..Default::default()
         }
     }

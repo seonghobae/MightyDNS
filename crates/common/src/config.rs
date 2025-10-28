@@ -63,6 +63,91 @@ pub struct AuthConfig {
     pub webauthn_origin: String,
 }
 
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            server: Default::default(),
+            database: Default::default(),
+            valkey: Default::default(),
+            nats: Default::default(),
+            dns: Default::default(),
+            auth: Default::default(),
+        }
+    }
+}
+
+impl Default for ServerConfig {
+    fn default() -> Self {
+        Self {
+            host: "0.0.0.0".into(),
+            port: 8080,
+            workers: num_cpus::get().max(1),
+        }
+    }
+}
+
+impl Default for DatabaseConfig {
+    fn default() -> Self {
+        Self {
+            url: "postgresql://localhost/mightydns".into(),
+            max_connections: 100,
+            min_connections: 10,
+            connect_timeout_secs: 10,
+            idle_timeout_secs: 600,
+        }
+    }
+}
+
+impl Default for ValkeyConfig {
+    fn default() -> Self {
+        Self {
+            url: "valkey://localhost:6379/0".into(),
+            pool_size: 100,
+            timeout_ms: 1000,
+        }
+    }
+}
+
+impl Default for NatsConfig {
+    fn default() -> Self {
+        Self {
+            url: "nats://localhost:4222".into(),
+            max_reconnects: 10,
+        }
+    }
+}
+
+impl Default for DnsConfig {
+    fn default() -> Self {
+        Self {
+            upstream_servers: vec![
+                "1.1.1.1:53".into(),
+                "8.8.8.8:53".into(),
+            ],
+            timeout_ms: 5000,
+            cache_ttl_secs: 300,
+            doh_port: 8443,
+            dot_port: 853,
+            udp_port: 53,
+            tls_cert_path: None,
+            tls_key_path: None,
+        }
+    }
+}
+
+impl Default for AuthConfig {
+    fn default() -> Self {
+        Self {
+            jwt_secret: "please-change-me-min-32-chars-entropy".into(),
+            jwt_expiry_hours: 1,
+            otp_expiry_minutes: 10,
+            webauthn_rp_id: "localhost".into(),
+            webauthn_rp_name: "MightyDNS".into(),
+            webauthn_origin: "https://localhost".into(),
+        }
+    }
+}
+
 impl Config {
     pub fn from_env() -> crate::Result<Self> {
         let config = ConfigBuilder::builder()
