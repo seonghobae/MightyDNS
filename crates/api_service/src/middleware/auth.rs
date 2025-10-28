@@ -12,7 +12,8 @@ use serde::{Deserialize, Serialize};
 pub struct Claims {
     pub sub: String,       // tenant_id (UUID)
     pub email: String,     // email_address
-    pub tenant_id: String, // tenant_identifier
+    #[serde(rename = "tenant_id")]
+    pub tenant_identifier: String, // tenant_identifier (renamed for clarity)
     pub jti: String,       // JWT ID for revocation
     pub exp: i64,          // expiration timestamp
     pub iat: i64,          // issued at timestamp
@@ -73,7 +74,7 @@ mod tests {
         let claims = Claims {
             sub: "tenant-uuid".to_string(),
             email: "user@example.com".to_string(),
-            tenant_id: "tenant123".to_string(),
+            tenant_identifier: "tenant123".to_string(),
             jti: "test-jti-1".to_string(),
             exp: 1234567890,
             iat: 1234567800,
@@ -81,7 +82,7 @@ mod tests {
 
         assert_eq!(claims.sub, "tenant-uuid");
         assert_eq!(claims.email, "user@example.com");
-        assert_eq!(claims.tenant_id, "tenant123");
+        assert_eq!(claims.tenant_identifier, "tenant123");
         assert!(!claims.jti.is_empty());
         assert!(claims.exp > claims.iat);
     }
@@ -91,7 +92,7 @@ mod tests {
         let claims = Claims {
             sub: "sub-123".to_string(),
             email: "test@test.com".to_string(),
-            tenant_id: "tid-456".to_string(),
+            tenant_identifier: "tid-456".to_string(),
             jti: "test-jti-2".to_string(),
             exp: 9999999999,
             iat: 9999999000,
@@ -100,7 +101,7 @@ mod tests {
         let json = serde_json::to_string(&claims).expect("Serialization failed");
         assert!(json.contains("sub"));
         assert!(json.contains("email"));
-        assert!(json.contains("tenant_id"));
+        assert!(json.contains("tenant_id")); // serde renames tenant_identifier to tenant_id
         assert!(json.contains("exp"));
         assert!(json.contains("iat"));
 
@@ -114,7 +115,7 @@ mod tests {
         let claims = Claims {
             sub: "test".to_string(),
             email: "test@example.com".to_string(),
-            tenant_id: "tenant".to_string(),
+            tenant_identifier: "tenant".to_string(),
             jti: "test-jti-3".to_string(),
             exp: 123456,
             iat: 123400,
@@ -132,7 +133,7 @@ mod tests {
         let claims = Claims {
             sub: "debug-test".to_string(),
             email: "debug@test.com".to_string(),
-            tenant_id: "tid".to_string(),
+            tenant_identifier: "tid".to_string(),
             jti: "test-jti-4".to_string(),
             exp: 100,
             iat: 50,
@@ -153,7 +154,7 @@ mod tests {
         let claims = Claims {
             sub: "user-id".to_string(),
             email: "user@example.com".to_string(),
-            tenant_id: "tenant-id".to_string(),
+            tenant_identifier: "tenant-id".to_string(),
             jti: "test-jti-5".to_string(),
             exp: future,
             iat: now,
@@ -168,7 +169,7 @@ mod tests {
         let claims = Claims {
             sub: "user".to_string(),
             email: "valid@example.com".to_string(),
-            tenant_id: "tenant".to_string(),
+            tenant_identifier: "tenant".to_string(),
             jti: "test-jti-6".to_string(),
             exp: 1000,
             iat: 500,
@@ -183,13 +184,13 @@ mod tests {
         let claims = Claims {
             sub: "user-sub".to_string(),
             email: "user@test.com".to_string(),
-            tenant_id: "valid-tenant-id".to_string(),
+            tenant_identifier: "valid-tenant-id".to_string(),
             jti: "test-jti-7".to_string(),
             exp: 2000,
             iat: 1000,
         };
 
-        assert!(!claims.tenant_id.is_empty());
+        assert!(!claims.tenant_identifier.is_empty());
         assert!(!claims.sub.is_empty());
     }
 }

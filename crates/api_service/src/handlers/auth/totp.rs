@@ -43,7 +43,7 @@ pub async fn setup_totp(
     Json(_payload): Json<SetupTotpRequest>,
 ) -> Result<(StatusCode, Json<SetupTotpResponse>), (StatusCode, Json<Value>)> {
     // Extract tenant identifier from authenticated JWT claims
-    let tenant_identifier = &claims.tenant_id;
+    let tenant_identifier = &claims.tenant_identifier;
 
     debug!("TOTP setup request for tenant: {}", tenant_identifier);
 

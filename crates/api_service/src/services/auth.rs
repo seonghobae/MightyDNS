@@ -22,7 +22,8 @@ fn mask_email(email: &str) -> String {
 pub struct Claims {
     pub sub: String,       // tenant_id (UUID)
     pub email: String,     // email_address
-    pub tenant_id: String, // tenant_identifier
+    #[serde(rename = "tenant_id")]
+    pub tenant_identifier: String, // tenant_identifier (renamed for clarity)
     pub jti: String,       // JWT ID for revocation
     pub exp: i64,          // expiration timestamp
     pub iat: i64,          // issued at timestamp
@@ -416,7 +417,7 @@ mod tests {
         let claims = Claims {
             sub: "tenant-123".to_string(),
             email: "test@example.com".to_string(),
-            tenant_id: "abc123def456".to_string(),
+            tenant_identifier: "abc123def456".to_string(),
             jti: Uuid::new_v4().to_string(),
             exp: 1234567890,
             iat: 1234567800,
@@ -433,7 +434,7 @@ mod tests {
         let claims = Claims {
             sub: Uuid::new_v4().to_string(),
             email: "user@test.com".to_string(),
-            tenant_id: "testid".to_string(),
+            tenant_identifier: "testid".to_string(),
             jti: Uuid::new_v4().to_string(),
             exp: Utc::now().timestamp() + 3600,
             iat: Utc::now().timestamp(),
@@ -444,7 +445,7 @@ mod tests {
 
         assert_eq!(claims.sub, deserialized.sub);
         assert_eq!(claims.email, deserialized.email);
-        assert_eq!(claims.tenant_id, deserialized.tenant_id);
+        assert_eq!(claims.tenant_identifier, deserialized.tenant_identifier);
     }
 
     #[test]

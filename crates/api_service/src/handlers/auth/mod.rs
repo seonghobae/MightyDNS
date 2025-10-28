@@ -20,7 +20,7 @@ pub async fn logout(
 
     // Skip cache write for already-expired tokens (TTL=0)
     if ttl_seconds == 0 {
-        info!("User logged out (jti={}, tenant_id={}) - token already expired", claims.jti, claims.tenant_id);
+        info!("User logged out (jti={}, tenant_identifier={}) - token already expired", claims.jti, claims.tenant_identifier);
         return Ok((
             StatusCode::OK,
             Json(json!({
@@ -45,7 +45,7 @@ pub async fn logout(
         ));
     }
 
-    info!("User logged out (jti={}, tenant_id={})", claims.jti, claims.tenant_id);
+    info!("User logged out (jti={}, tenant_identifier={})", claims.jti, claims.tenant_identifier);
 
     Ok((
         StatusCode::OK,
