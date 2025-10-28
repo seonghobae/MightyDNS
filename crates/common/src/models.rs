@@ -113,12 +113,13 @@ pub struct BlockListSource {
 
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct WhiteListEntry {
-    pub white_entry_id: Uuid,
+    pub entry_id: Uuid,
     pub tenant_id: Uuid,
-    pub white_domain_name: String,
-    pub white_reason: Option<String>,
-    pub white_added_at: DateTime<Utc>,
-    pub is_white_active: bool,
+    pub config_id: Uuid,
+    pub entry_domain_name: String,
+    pub entry_added_reason: Option<String>,
+    pub entry_created_at: DateTime<Utc>,
+    pub is_entry_active: bool,
 }
 
 // ============================================================================
@@ -135,7 +136,7 @@ pub struct DnsQueryLog {
     pub query_type: DnsQueryType,
     pub query_result_type: DnsResultType,
     pub response_ip_address: Option<String>,
-    pub query_latency_ms: Option<i16>,
+    pub query_latency_ms: Option<i32>,  // i32 to avoid overflow (max 32767ms too low)
     pub query_source_protocol: Option<String>,
     pub query_source_ip: Option<String>,
 }
@@ -422,7 +423,7 @@ mod tests {
             config_description: Some("Default configuration".to_string()),
             is_logging_enabled: true,
             is_dnssec_enabled: false,
-            blocked_response_ip: "0.0.0.0".to_string(),
+            blocked_response_ip: Some("0.0.0.0".to_string()),
             config_created_at: Utc::now(),
             config_updated_at: Utc::now(),
             is_config_active: true,
@@ -430,7 +431,7 @@ mod tests {
 
         assert!(config.is_logging_enabled);
         assert!(!config.is_dnssec_enabled);
-        assert_eq!(config.blocked_response_ip, "0.0.0.0");
+        assert_eq!(config.blocked_response_ip, Some("0.0.0.0".to_string()));
     }
 
     #[test]
@@ -454,16 +455,17 @@ mod tests {
     #[test]
     fn test_whitelist_entry_creation() {
         let entry = WhiteListEntry {
-            white_entry_id: Uuid::new_v4(),
+            entry_id: Uuid::new_v4(),
             tenant_id: Uuid::new_v4(),
-            white_domain_name: "trusted.com".to_string(),
-            white_reason: Some("Business partner".to_string()),
-            white_added_at: Utc::now(),
-            is_white_active: true,
+            config_id: Uuid::new_v4(),
+            entry_domain_name: "trusted.com".to_string(),
+            entry_added_reason: Some("Business partner".to_string()),
+            entry_created_at: Utc::now(),
+            is_entry_active: true,
         };
 
-        assert_eq!(entry.white_domain_name, "trusted.com");
-        assert!(entry.is_white_active);
+        assert_eq!(entry.entry_domain_name, "trusted.com");
+        assert!(entry.is_entry_active);
     }
 
     #[test]
