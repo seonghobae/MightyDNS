@@ -49,7 +49,7 @@ pub struct TenantConfig {
     pub config_description: Option<String>,
     pub is_logging_enabled: bool,
     pub is_dnssec_enabled: bool,
-    pub blocked_response_ip: String,
+    pub blocked_response_ip: Option<String>,  // Nullable in DB schema
     pub config_created_at: DateTime<Utc>,
     pub config_updated_at: DateTime<Utc>,
     pub is_config_active: bool,

@@ -13,7 +13,7 @@ pub struct ConfigResponse {
     pub config_description: Option<String>,
     pub is_dnssec_enabled: bool,
     pub is_logging_enabled: bool,
-    pub blocked_response_ip: String,
+    pub blocked_response_ip: Option<String>,  // Nullable in DB
     pub created_at: String,
 }
 
@@ -163,13 +163,13 @@ mod tests {
             config_description: Some("Default configuration".to_string()),
             is_dnssec_enabled: false,
             is_logging_enabled: true,
-            blocked_response_ip: "0.0.0.0".to_string(),
+            blocked_response_ip: Some("0.0.0.0".to_string()),
             created_at: "2024-01-01T00:00:00Z".to_string(),
         };
 
         assert!(!response.config_id.is_empty());
         assert!(response.is_logging_enabled);
-        assert!(is_valid_ipv4(&response.blocked_response_ip));
+        assert!(response.blocked_response_ip.as_ref().map_or(false, |ip| is_valid_ipv4(ip)));
     }
 
     #[test]
@@ -229,7 +229,7 @@ mod tests {
             config_description: Some("Test description".to_string()),
             is_dnssec_enabled: true,
             is_logging_enabled: false,
-            blocked_response_ip: "0.0.0.0".to_string(),
+            blocked_response_ip: Some("0.0.0.0".to_string()),
             created_at: "2024-01-01T00:00:00Z".to_string(),
         };
 

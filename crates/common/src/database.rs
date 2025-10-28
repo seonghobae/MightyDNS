@@ -164,7 +164,7 @@ impl Database {
                 config_description,
                 is_logging_enabled,
                 is_dnssec_enabled,
-                blocked_response_ip::TEXT as "blocked_response_ip!",
+                blocked_response_ip::TEXT as "blocked_response_ip?",
                 config_created_at,
                 config_updated_at,
                 is_config_active
@@ -192,7 +192,7 @@ impl Database {
                 config_description,
                 is_logging_enabled,
                 is_dnssec_enabled,
-                blocked_response_ip::TEXT as "blocked_response_ip!",
+                blocked_response_ip::TEXT as "blocked_response_ip?",
                 config_created_at,
                 config_updated_at,
                 is_config_active
@@ -860,7 +860,7 @@ impl Database {
                 config_description,
                 is_logging_enabled,
                 is_dnssec_enabled,
-                blocked_response_ip::TEXT as "blocked_response_ip!",
+                blocked_response_ip::TEXT as "blocked_response_ip?",
                 config_created_at,
                 config_updated_at,
                 is_config_active
