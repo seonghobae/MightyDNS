@@ -118,3 +118,123 @@ pub async fn verify_totp(
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_setup_totp_request_structure() {
+        let request = SetupTotpRequest {
+            tenant_id: "test_tenant_123".to_string(),
+        };
+        
+        assert_eq!(request.tenant_id, "test_tenant_123");
+        assert!(!request.tenant_id.is_empty());
+    }
+
+    #[test]
+    fn test_setup_totp_response_structure() {
+        let response = SetupTotpResponse {
+            success: true,
+            secret_key: "ABCDEFGHIJKLMNOP".to_string(),
+            qr_code_url: "otpauth://totp/MightyDNS:user@example.com?secret=ABCDEFGHIJKLMNOP&issuer=MightyDNS".to_string(),
+            issuer: "MightyDNS".to_string(),
+            account_name: "MightyDNS:user@example.com".to_string(),
+        };
+        
+        assert!(response.success);
+        assert_eq!(response.secret_key.len(), 16);
+        assert!(response.qr_code_url.starts_with("otpauth://totp/"));
+        assert!(response.qr_code_url.contains("secret="));
+        assert!(response.qr_code_url.contains("issuer="));
+        assert_eq!(response.issuer, "MightyDNS");
+    }
+
+    #[test]
+    fn test_verify_totp_request_structure() {
+        let request = VerifyTotpRequest {
+            email_address: "user@example.com".to_string(),
+            totp_code: "123456".to_string(),
+        };
+        
+        assert_eq!(request.email_address, "user@example.com");
+        assert_eq!(request.totp_code, "123456");
+        assert_eq!(request.totp_code.len(), 6);
+    }
+
+    #[test]
+    fn test_verify_totp_response_success() {
+        let response = VerifyTotpResponse {
+            success: true,
+            token: Some("jwt.token.here".to_string()),
+            tenant_id: Some("tenant_abc123".to_string()),
+            message: "Authentication successful".to_string(),
+        };
+        
+        assert!(response.success);
+        assert!(response.token.is_some());
+        assert!(response.tenant_id.is_some());
+        assert!(!response.message.is_empty());
+    }
+
+    #[test]
+    fn test_verify_totp_response_failure() {
+        let response = VerifyTotpResponse {
+            success: false,
+            token: None,
+            tenant_id: None,
+            message: "Invalid TOTP code".to_string(),
+        };
+        
+        assert!(!response.success);
+        assert!(response.token.is_none());
+        assert!(response.tenant_id.is_none());
+        assert_eq!(response.message, "Invalid TOTP code");
+    }
+
+    #[test]
+    fn test_totp_code_format() {
+        let valid_codes = vec!["123456", "000000", "999999", "012345"];
+        
+        for code in valid_codes {
+            assert_eq!(code.len(), 6);
+            assert!(code.chars().all(|c| c.is_ascii_digit()));
+        }
+    }
+
+    #[test]
+    fn test_qr_code_url_format() {
+        let url = "otpauth://totp/MightyDNS:user@example.com?secret=JBSWY3DPEHPK3PXP&issuer=MightyDNS";
+        
+        assert!(url.starts_with("otpauth://totp/"));
+        assert!(url.contains("secret="));
+        assert!(url.contains("issuer="));
+        assert!(url.contains("@"));
+    }
+
+    #[test]
+    fn test_setup_response_serialization() {
+        let response = SetupTotpResponse {
+            success: true,
+            secret_key: "TESTSECRET123456".to_string(),
+            qr_code_url: "otpauth://totp/test".to_string(),
+            issuer: "MightyDNS".to_string(),
+            account_name: "test:user@test.com".to_string(),
+        };
+        
+        let json = serde_json::to_string(&response).expect("Serialization failed");
+        assert!(json.contains("success"));
+        assert!(json.contains("secret_key"));
+        assert!(json.contains("qr_code_url"));
+    }
+
+    #[test]
+    fn test_verify_request_deserialization() {
+        let json = r#"{"email_address":"test@example.com","totp_code":"123456"}"#;
+        let request: VerifyTotpRequest = serde_json::from_str(json).expect("Deserialization failed");
+        
+        assert_eq!(request.email_address, "test@example.com");
+        assert_eq!(request.totp_code, "123456");
+    }
+}

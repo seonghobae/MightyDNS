@@ -88,17 +88,152 @@ fn is_valid_ipv4(ip: &str) -> bool {
         == 4
 }
 
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn test_ipv4_validation() {
+    fn test_ipv4_validation_valid() {
         assert!(is_valid_ipv4("0.0.0.0"));
         assert!(is_valid_ipv4("192.168.1.1"));
         assert!(is_valid_ipv4("8.8.8.8"));
+        assert!(is_valid_ipv4("255.255.255.255"));
+        assert!(is_valid_ipv4("1.2.3.4"));
+        assert!(is_valid_ipv4("10.0.0.1"));
+        assert!(is_valid_ipv4("172.16.0.1"));
+    }
+
+    #[test]
+    fn test_ipv4_validation_invalid() {
         assert!(!is_valid_ipv4("256.1.1.1"));
+        assert!(!is_valid_ipv4("1.256.1.1"));
+        assert!(!is_valid_ipv4("1.1.256.1"));
+        assert!(!is_valid_ipv4("1.1.1.256"));
         assert!(!is_valid_ipv4("invalid"));
         assert!(!is_valid_ipv4("1.2.3"));
+        assert!(!is_valid_ipv4("1.2.3.4.5"));
+        assert!(!is_valid_ipv4(""));
+        assert!(!is_valid_ipv4("..."));
+        assert!(!is_valid_ipv4("a.b.c.d"));
+    }
+
+    #[test]
+    fn test_ipv4_validation_edge_cases() {
+        // Boundary values
+        assert!(is_valid_ipv4("0.0.0.0"));
+        assert!(is_valid_ipv4("255.255.255.255"));
+        
+        // Just over boundary
+        assert!(!is_valid_ipv4("256.0.0.0"));
+        assert!(!is_valid_ipv4("0.256.0.0"));
+        
+        // Negative numbers
+        assert!(!is_valid_ipv4("-1.0.0.0"));
+        
+        // Leading zeros (parsed as valid)
+        assert!(is_valid_ipv4("01.02.03.04"));
+        
+        // Whitespace
+        assert!(!is_valid_ipv4(" 1.2.3.4"));
+        assert!(!is_valid_ipv4("1.2.3.4 "));
+        assert!(!is_valid_ipv4("1. 2.3.4"));
+    }
+
+    #[test]
+    fn test_config_response_structure() {
+        let response = ConfigResponse {
+            config_id: "123e4567-e89b-12d3-a456-426614174000".to_string(),
+            config_name: "Default".to_string(),
+            is_blocking_enabled: true,
+            is_logging_enabled: true,
+            blocked_response_ip: "0.0.0.0".to_string(),
+            dns_over_https_enabled: true,
+            dns_over_tls_enabled: false,
+            created_at: "2024-01-01T00:00:00Z".to_string(),
+        };
+        
+        assert!(!response.config_id.is_empty());
+        assert!(response.is_blocking_enabled);
+        assert!(response.is_logging_enabled);
+        assert!(is_valid_ipv4(&response.blocked_response_ip));
+    }
+
+    #[test]
+    fn test_update_config_request_all_fields() {
+        let request = UpdateConfigRequest {
+            config_name: Some("Updated Config".to_string()),
+            is_blocking_enabled: Some(true),
+            is_logging_enabled: Some(false),
+            blocked_response_ip: Some("192.168.1.1".to_string()),
+        };
+        
+        assert!(request.config_name.is_some());
+        assert!(request.is_blocking_enabled.is_some());
+        assert!(request.is_logging_enabled.is_some());
+        assert!(request.blocked_response_ip.is_some());
+    }
+
+    #[test]
+    fn test_update_config_request_partial() {
+        let request = UpdateConfigRequest {
+            config_name: Some("New Name".to_string()),
+            is_blocking_enabled: None,
+            is_logging_enabled: None,
+            blocked_response_ip: None,
+        };
+        
+        assert!(request.config_name.is_some());
+        assert!(request.is_blocking_enabled.is_none());
+        assert!(request.is_logging_enabled.is_none());
+        assert!(request.blocked_response_ip.is_none());
+    }
+
+    #[test]
+    fn test_update_config_request_empty() {
+        let request = UpdateConfigRequest {
+            config_name: None,
+            is_blocking_enabled: None,
+            is_logging_enabled: None,
+            blocked_response_ip: None,
+        };
+        
+        assert!(request.config_name.is_none());
+        assert!(request.is_blocking_enabled.is_none());
+    }
+
+    #[test]
+    fn test_config_response_serialization() {
+        let response = ConfigResponse {
+            config_id: "test-id".to_string(),
+            config_name: "Test".to_string(),
+            is_blocking_enabled: true,
+            is_logging_enabled: false,
+            blocked_response_ip: "0.0.0.0".to_string(),
+            dns_over_https_enabled: true,
+            dns_over_tls_enabled: true,
+            created_at: "2024-01-01T00:00:00Z".to_string(),
+        };
+        
+        let json = serde_json::to_string(&response).expect("Serialization failed");
+        assert!(json.contains("config_id"));
+        assert!(json.contains("is_blocking_enabled"));
+        assert!(json.contains("blocked_response_ip"));
+    }
+
+    #[test]
+    fn test_blocked_response_ip_common_values() {
+        let common_ips = vec!["0.0.0.0", "127.0.0.1", "192.168.1.1"];
+        
+        for ip in common_ips {
+            assert!(is_valid_ipv4(ip));
+        }
+    }
+
+    #[test]
+    fn test_ipv4_validation_with_ports() {
+        // Should not accept IPs with ports
+        assert!(!is_valid_ipv4("192.168.1.1:8080"));
+        assert!(!is_valid_ipv4("127.0.0.1:80"));
     }
 }

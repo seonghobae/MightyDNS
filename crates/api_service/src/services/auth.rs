@@ -346,3 +346,124 @@ fn generate_tenant_identifier() -> String {
         .map(|c| c.to_ascii_lowercase() as char)
         .collect()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_generate_otp_format() {
+        for _ in 0..100 {
+            let otp = generate_otp();
+            assert_eq!(otp.len(), 6, "OTP should be 6 digits");
+            assert!(otp.chars().all(|c| c.is_ascii_digit()), "OTP should only contain digits");
+            let num: u32 = otp.parse().expect("OTP should be a valid number");
+            assert!(num < 1_000_000, "OTP should be less than 1000000");
+        }
+    }
+
+    #[test]
+    fn test_generate_otp_uniqueness() {
+        let mut otps = std::collections::HashSet::new();
+        for _ in 0..50 {
+            let otp = generate_otp();
+            otps.insert(otp);
+        }
+        // With random generation, we should get mostly unique values
+        assert!(otps.len() > 40, "Should generate mostly unique OTPs");
+    }
+
+    #[test]
+    fn test_generate_totp_secret_length() {
+        for _ in 0..10 {
+            let secret = generate_totp_secret();
+            assert_eq!(secret.len(), 32, "TOTP secret should be 32 characters");
+            assert!(secret.chars().all(|c| c.is_ascii_alphanumeric()), 
+                "TOTP secret should only contain alphanumeric characters");
+            assert!(secret.chars().all(|c| c.is_ascii_uppercase()),
+                "TOTP secret should be uppercase");
+        }
+    }
+
+    #[test]
+    fn test_generate_tenant_identifier_format() {
+        for _ in 0..20 {
+            let identifier = generate_tenant_identifier();
+            assert_eq!(identifier.len(), 16, "Tenant identifier should be 16 characters");
+            assert!(identifier.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit()),
+                "Tenant identifier should only contain lowercase alphanumeric");
+        }
+    }
+
+    #[test]
+    fn test_generate_tenant_identifier_uniqueness() {
+        let mut identifiers = std::collections::HashSet::new();
+        for _ in 0..50 {
+            let id = generate_tenant_identifier();
+            identifiers.insert(id);
+        }
+        assert_eq!(identifiers.len(), 50, "Should generate unique identifiers");
+    }
+
+    #[test]
+    fn test_claims_structure() {
+        let claims = Claims {
+            sub: "tenant-123".to_string(),
+            email: "test@example.com".to_string(),
+            tenant_id: "abc123def456".to_string(),
+            exp: 1234567890,
+            iat: 1234567800,
+        };
+
+        assert_eq!(claims.sub, "tenant-123");
+        assert_eq!(claims.email, "test@example.com");
+        assert!(claims.exp > claims.iat);
+    }
+
+    #[test]
+    fn test_claims_serialization() {
+        let claims = Claims {
+            sub: Uuid::new_v4().to_string(),
+            email: "user@test.com".to_string(),
+            tenant_id: "testid".to_string(),
+            exp: Utc::now().timestamp() + 3600,
+            iat: Utc::now().timestamp(),
+        };
+
+        let json = serde_json::to_string(&claims).expect("Serialization failed");
+        let deserialized: Claims = serde_json::from_str(&json).expect("Deserialization failed");
+
+        assert_eq!(claims.sub, deserialized.sub);
+        assert_eq!(claims.email, deserialized.email);
+        assert_eq!(claims.tenant_id, deserialized.tenant_id);
+    }
+
+    #[test]
+    fn test_otp_leading_zeros() {
+        // Test that OTPs can have leading zeros
+        for _ in 0..1000 {
+            let otp = generate_otp();
+            assert_eq!(otp.len(), 6);
+            // Verify that parsing works even with leading zeros
+            let _: u32 = otp.parse().expect("Should parse as number");
+        }
+    }
+
+    #[test]
+    fn test_totp_secret_randomness() {
+        let secret1 = generate_totp_secret();
+        let secret2 = generate_totp_secret();
+        assert_ne!(secret1, secret2, "TOTP secrets should be unique");
+    }
+
+    #[test]
+    fn test_tenant_identifier_no_special_chars() {
+        for _ in 0..30 {
+            let id = generate_tenant_identifier();
+            assert!(!id.contains('-'));
+            assert!(!id.contains('_'));
+            assert!(!id.contains(' '));
+            assert!(!id.contains('.'));
+        }
+    }
+}

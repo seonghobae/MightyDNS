@@ -53,3 +53,124 @@ pub async fn auth_middleware(
 
     Ok(next.run(req).await)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_claims_structure() {
+        let claims = Claims {
+            sub: "tenant-uuid".to_string(),
+            email: "user@example.com".to_string(),
+            tenant_id: "tenant123".to_string(),
+            exp: 1234567890,
+            iat: 1234567800,
+        };
+
+        assert_eq!(claims.sub, "tenant-uuid");
+        assert_eq!(claims.email, "user@example.com");
+        assert_eq!(claims.tenant_id, "tenant123");
+        assert!(claims.exp > claims.iat);
+    }
+
+    #[test]
+    fn test_claims_serialization() {
+        let claims = Claims {
+            sub: "sub-123".to_string(),
+            email: "test@test.com".to_string(),
+            tenant_id: "tid-456".to_string(),
+            exp: 9999999999,
+            iat: 9999999000,
+        };
+
+        let json = serde_json::to_string(&claims).expect("Serialization failed");
+        assert!(json.contains("sub"));
+        assert!(json.contains("email"));
+        assert!(json.contains("tenant_id"));
+        assert!(json.contains("exp"));
+        assert!(json.contains("iat"));
+
+        let deserialized: Claims = serde_json::from_str(&json).expect("Deserialization failed");
+        assert_eq!(claims.sub, deserialized.sub);
+        assert_eq!(claims.email, deserialized.email);
+    }
+
+    #[test]
+    fn test_claims_clone() {
+        let claims = Claims {
+            sub: "test".to_string(),
+            email: "test@example.com".to_string(),
+            tenant_id: "tenant".to_string(),
+            exp: 123456,
+            iat: 123400,
+        };
+
+        let cloned = claims.clone();
+        assert_eq!(claims.sub, cloned.sub);
+        assert_eq!(claims.email, cloned.email);
+        assert_eq!(claims.exp, cloned.exp);
+    }
+
+    #[test]
+    fn test_claims_debug_format() {
+        let claims = Claims {
+            sub: "debug-test".to_string(),
+            email: "debug@test.com".to_string(),
+            tenant_id: "tid".to_string(),
+            exp: 100,
+            iat: 50,
+        };
+
+        let debug_str = format!("{:?}", claims);
+        assert!(debug_str.contains("Claims"));
+        assert!(debug_str.contains("debug-test"));
+    }
+
+    #[test]
+    fn test_claims_with_timestamps() {
+        use chrono::Utc;
+        
+        let now = Utc::now().timestamp();
+        let future = now + 3600;
+
+        let claims = Claims {
+            sub: "user-id".to_string(),
+            email: "user@example.com".to_string(),
+            tenant_id: "tenant-id".to_string(),
+            exp: future,
+            iat: now,
+        };
+
+        assert!(claims.exp > claims.iat);
+        assert!(claims.exp - claims.iat <= 3600);
+    }
+
+    #[test]
+    fn test_claims_email_validation() {
+        let claims = Claims {
+            sub: "user".to_string(),
+            email: "valid@example.com".to_string(),
+            tenant_id: "tenant".to_string(),
+            exp: 1000,
+            iat: 500,
+        };
+
+        assert!(claims.email.contains('@'));
+        assert!(claims.email.len() > 5);
+    }
+
+    #[test]
+    fn test_claims_tenant_id_not_empty() {
+        let claims = Claims {
+            sub: "user-sub".to_string(),
+            email: "user@test.com".to_string(),
+            tenant_id: "valid-tenant-id".to_string(),
+            exp: 2000,
+            iat: 1000,
+        };
+
+        assert!(!claims.tenant_id.is_empty());
+        assert!(!claims.sub.is_empty());
+    }
+}

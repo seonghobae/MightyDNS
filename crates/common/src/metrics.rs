@@ -266,6 +266,11 @@ macro_rules! time_async_operation {
     }};
 }
 
+        assert!(CACHE_HITS_TOTAL.with_label_values(&["memory", "tenant"]).get() >= 0);
+        assert!(DB_CONNECTIONS_ACTIVE.get() >= 0);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -276,5 +281,139 @@ mod tests {
         assert!(DNS_QUERIES_TOTAL.with_label_values(&["doh", "allowed"]).get() >= 0);
         assert!(CACHE_HITS_TOTAL.with_label_values(&["memory", "tenant"]).get() >= 0);
         assert!(DB_CONNECTIONS_ACTIVE.get() >= 0);
+    }
+
+    #[test]
+    fn test_dns_metrics_labels() {
+        // Test that DNS metrics accept valid label combinations
+        DNS_QUERIES_TOTAL.with_label_values(&["doh", "allowed"]).inc();
+        DNS_QUERIES_TOTAL.with_label_values(&["dot", "blocked"]).inc();
+        DNS_QUERIES_TOTAL.with_label_values(&["udp", "whitelisted"]).inc();
+        DNS_QUERIES_TOTAL.with_label_values(&["doh", "error"]).inc();
+
+        assert!(DNS_QUERIES_TOTAL.with_label_values(&["doh", "allowed"]).get() > 0);
+    }
+
+    #[test]
+    fn test_cache_metrics_increment() {
+        let initial = CACHE_HITS_TOTAL.with_label_values(&["memory", "tenant"]).get();
+        CACHE_HITS_TOTAL.with_label_values(&["memory", "tenant"]).inc();
+        assert_eq!(CACHE_HITS_TOTAL.with_label_values(&["memory", "tenant"]).get(), initial + 1);
+    }
+
+    #[test]
+    fn test_blocked_metrics_categories() {
+        DNS_BLOCKED_TOTAL.with_label_values(&["advertising"]).inc();
+        DNS_BLOCKED_TOTAL.with_label_values(&["malware_phishing"]).inc();
+        DNS_BLOCKED_TOTAL.with_label_values(&["adult_content"]).inc();
+
+        assert!(DNS_BLOCKED_TOTAL.with_label_values(&["advertising"]).get() > 0);
+    }
+
+    #[test]
+    fn test_upstream_query_metrics() {
+        DNS_UPSTREAM_QUERIES_TOTAL.with_label_values(&["1.1.1.1:53", "success"]).inc();
+        DNS_UPSTREAM_QUERIES_TOTAL.with_label_values(&["8.8.8.8:53", "failure"]).inc();
+
+        assert!(DNS_UPSTREAM_QUERIES_TOTAL.with_label_values(&["1.1.1.1:53", "success"]).get() > 0);
+    }
+
+    #[test]
+    fn test_database_metrics() {
+        DB_CONNECTIONS_ACTIVE.set(10);
+        assert_eq!(DB_CONNECTIONS_ACTIVE.get(), 10);
+
+        DB_CONNECTIONS_IDLE.set(5);
+        assert_eq!(DB_CONNECTIONS_IDLE.get(), 5);
+    }
+
+    #[test]
+    fn test_histogram_metrics() {
+        DNS_QUERY_DURATION.with_label_values(&["doh"]).observe(0.05);
+        DNS_UPSTREAM_QUERY_DURATION.with_label_values(&["1.1.1.1:53"]).observe(0.02);
+
+        // Histograms should accept observations
+        // We can't easily verify the exact values, but we can ensure no panics
+    }
+
+    #[test]
+    fn test_auth_metrics() {
+        AUTH_REQUESTS_TOTAL.with_label_values(&["email_otp", "success"]).inc();
+        AUTH_REQUESTS_TOTAL.with_label_values(&["fido2", "failure"]).inc();
+        AUTH_REQUESTS_TOTAL.with_label_values(&["totp", "success"]).inc();
+
+        assert!(AUTH_REQUESTS_TOTAL.with_label_values(&["email_otp", "success"]).get() > 0);
+    }
+
+    #[test]
+    fn test_nats_metrics() {
+        NATS_MESSAGES_PROCESSED.with_label_values(&["dns.query.log", "success"]).inc();
+        NATS_MESSAGES_PROCESSED.with_label_values(&["email.send", "failure"]).inc();
+
+        NATS_QUEUE_DEPTH.with_label_values(&["dns.query.log"]).set(100);
+        assert_eq!(NATS_QUEUE_DEPTH.with_label_values(&["dns.query.log"]).get(), 100);
+    }
+
+    #[test]
+    fn test_metrics_handler_output() {
+        let output = metrics_handler();
+        
+        assert!(!output.is_empty());
+        assert!(output.contains("# HELP") || output.contains("# TYPE"));
+    }
+
+    #[test]
+    fn test_api_request_metrics() {
+        API_REQUESTS_TOTAL.with_label_values(&["/api/v1/config", "GET", "200"]).inc();
+        API_REQUESTS_TOTAL.with_label_values(&["/api/v1/tenant", "POST", "201"]).inc();
+
+        assert!(API_REQUESTS_TOTAL.with_label_values(&["/api/v1/config", "GET", "200"]).get() > 0);
+    }
+
+    #[test]
+    fn test_cache_miss_metrics() {
+        CACHE_MISSES_TOTAL.with_label_values(&["memory", "tenant"]).inc();
+        CACHE_MISSES_TOTAL.with_label_values(&["valkey", "blocklist"]).inc();
+
+        assert!(CACHE_MISSES_TOTAL.with_label_values(&["memory", "tenant"]).get() > 0);
+    }
+
+    #[test]
+    fn test_query_latency_buckets() {
+        // Test that histogram accepts values in expected ranges
+        DNS_QUERY_DURATION.with_label_values(&["doh"]).observe(0.001);  // 1ms
+        DNS_QUERY_DURATION.with_label_values(&["doh"]).observe(0.01);   // 10ms
+        DNS_QUERY_DURATION.with_label_values(&["doh"]).observe(0.1);    // 100ms
+        DNS_QUERY_DURATION.with_label_values(&["doh"]).observe(1.0);    // 1s
+
+        // Should not panic
+    }
+
+    #[test]
+    fn test_tenant_metrics() {
+        TENANTS_TOTAL.with_label_values(&["free", "active"]).set(100);
+        TENANTS_TOTAL.with_label_values(&["pro", "active"]).set(50);
+        TENANTS_TOTAL.with_label_values(&["business", "active"]).set(10);
+
+        assert_eq!(TENANTS_TOTAL.with_label_values(&["free", "active"]).get(), 100);
+    }
+
+    #[test]
+    fn test_background_job_metrics() {
+        BACKGROUND_JOB_DURATION.with_label_values(&["dns_logger"]).observe(2.5);
+        BACKGROUND_JOB_DURATION.with_label_values(&["blocklist_updater"]).observe(10.0);
+
+        // Should accept observations without panic
+    }
+
+    #[test]
+    fn test_multiple_protocol_metrics() {
+        for protocol in &["doh", "dot", "udp"] {
+            DNS_QUERIES_TOTAL.with_label_values(&[protocol, "allowed"]).inc();
+        }
+
+        assert!(DNS_QUERIES_TOTAL.with_label_values(&["doh", "allowed"]).get() > 0);
+        assert!(DNS_QUERIES_TOTAL.with_label_values(&["dot", "allowed"]).get() > 0);
+        assert!(DNS_QUERIES_TOTAL.with_label_values(&["udp", "allowed"]).get() > 0);
     }
 }
