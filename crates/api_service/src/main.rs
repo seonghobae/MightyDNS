@@ -115,6 +115,16 @@ fn create_router(state: Arc<AppState>) -> Router {
         .route("/api/v1/tenant/profile", get(handlers::tenant::get_profile))
         .route("/api/v1/tenant/profile", post(handlers::tenant::update_profile))
 
+        // Blocklist & Whitelist management (authenticated)
+        .route("/api/v1/blocklists", get(handlers::blocklist::get_blocklists))
+        .route("/api/v1/whitelists", get(handlers::whitelist::get_whitelists))
+        .route("/api/v1/whitelists", post(handlers::whitelist::add_whitelist))
+        .route("/api/v1/whitelists/:id", axum::routing::delete(handlers::whitelist::delete_whitelist))
+
+        // Configuration management (authenticated)
+        .route("/api/v1/config", get(handlers::config::get_config))
+        .route("/api/v1/config", axum::routing::put(handlers::config::update_config))
+
         // Add state and middleware
         .layer(CorsLayer::new().allow_origin(Any).allow_methods(Any).allow_headers(Any))
         .layer(TraceLayer::new_for_http())

@@ -668,6 +668,141 @@ impl Database {
             None => Ok(false),
         }
     }
+
+    // ============================================================================
+    // Whitelist Management
+    // ============================================================================
+
+    /// Get whitelists for a tenant
+    pub async fn get_whitelists(&self, tenant_id: &Uuid) -> Result<Vec<WhiteListEntry>> {
+        let entries = sqlx::query_as!(
+            WhiteListEntry,
+            r#"
+            SELECT
+                entry_id,
+                tenant_id,
+                config_id,
+                entry_domain_name,
+                entry_added_reason,
+                entry_created_at,
+                is_entry_active
+            FROM white_list_entry
+            WHERE tenant_id = $1 AND is_entry_active = TRUE
+            ORDER BY entry_created_at DESC
+            "#,
+            tenant_id
+        )
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(entries)
+    }
+
+    /// Add domain to whitelist
+    pub async fn add_whitelist(
+        &self,
+        tenant_id: &Uuid,
+        config_id: &Uuid,
+        domain: &str,
+        reason: Option<&str>,
+    ) -> Result<WhiteListEntry> {
+        let entry = sqlx::query_as!(
+            WhiteListEntry,
+            r#"
+            INSERT INTO white_list_entry (
+                tenant_id,
+                config_id,
+                entry_domain_name,
+                entry_added_reason
+            )
+            VALUES ($1, $2, $3, $4)
+            RETURNING
+                entry_id,
+                tenant_id,
+                config_id,
+                entry_domain_name,
+                entry_added_reason,
+                entry_created_at,
+                is_entry_active
+            "#,
+            tenant_id,
+            config_id,
+            domain,
+            reason
+        )
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(entry)
+    }
+
+    /// Delete whitelist entry
+    pub async fn delete_whitelist(&self, tenant_id: &Uuid, entry_id: &Uuid) -> Result<()> {
+        sqlx::query!(
+            r#"
+            UPDATE white_list_entry
+            SET is_entry_active = FALSE
+            WHERE entry_id = $1 AND tenant_id = $2
+            "#,
+            entry_id,
+            tenant_id
+        )
+        .execute(&self.pool)
+        .await?;
+
+        Ok(())
+    }
+
+    // ============================================================================
+    // Configuration Management
+    // ============================================================================
+
+    /// Update tenant configuration
+    pub async fn update_tenant_config(
+        &self,
+        config_id: &Uuid,
+        tenant_id: &Uuid,
+        config_name: Option<&str>,
+        is_blocking_enabled: Option<bool>,
+        is_logging_enabled: Option<bool>,
+        blocked_response_ip: Option<&str>,
+    ) -> Result<TenantConfig> {
+        let config = sqlx::query_as!(
+            TenantConfig,
+            r#"
+            UPDATE tenant_config
+            SET
+                config_name = COALESCE($3, config_name),
+                is_blocking_enabled = COALESCE($4, is_blocking_enabled),
+                is_logging_enabled = COALESCE($5, is_logging_enabled),
+                blocked_response_ip = COALESCE($6, blocked_response_ip),
+                config_updated_at = NOW()
+            WHERE config_id = $1 AND tenant_id = $2
+            RETURNING
+                config_id,
+                tenant_id,
+                config_name,
+                is_blocking_enabled,
+                is_logging_enabled,
+                blocked_response_ip,
+                config_created_at,
+                config_updated_at,
+                is_config_active,
+                dns_over_https_enabled,
+                dns_over_tls_enabled
+            "#,
+            config_id,
+            tenant_id,
+            config_name,
+            is_blocking_enabled,
+            is_logging_enabled,
+            blocked_response_ip
+        )
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(config)
+    }
 }
 
 /// Verify TOTP code against secret
