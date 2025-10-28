@@ -895,11 +895,16 @@ fn verify_totp_code(secret: &str, code: &str) -> bool {
     }
 
     // Decode base32 secret (TOTP secrets are typically base32 encoded)
-    let secret_bytes = match data_encoding::BASE32_NOPAD.decode(secret.to_uppercase().as_bytes()) {
+    // Try both padded and unpadded base32 formats
+    let secret_upper = secret.to_uppercase();
+    let secret_bytes = match data_encoding::BASE32.decode(secret_upper.as_bytes()) {
         Ok(bytes) => bytes,
         Err(_) => {
-            // If base32 decode fails, try using raw bytes
-            secret.as_bytes().to_vec()
+            // Try unpadded base32
+            match data_encoding::BASE32_NOPAD.decode(secret_upper.as_bytes()) {
+                Ok(bytes) => bytes,
+                Err(_) => return false, // Invalid base32 secret
+            }
         }
     };
 

@@ -74,6 +74,7 @@ mod tests {
             sub: "tenant-uuid".to_string(),
             email: "user@example.com".to_string(),
             tenant_id: "tenant123".to_string(),
+            jti: "test-jti-1".to_string(),
             exp: 1234567890,
             iat: 1234567800,
         };
@@ -81,6 +82,7 @@ mod tests {
         assert_eq!(claims.sub, "tenant-uuid");
         assert_eq!(claims.email, "user@example.com");
         assert_eq!(claims.tenant_id, "tenant123");
+        assert!(!claims.jti.is_empty());
         assert!(claims.exp > claims.iat);
     }
 
@@ -90,6 +92,7 @@ mod tests {
             sub: "sub-123".to_string(),
             email: "test@test.com".to_string(),
             tenant_id: "tid-456".to_string(),
+            jti: "test-jti-2".to_string(),
             exp: 9999999999,
             iat: 9999999000,
         };
@@ -112,6 +115,7 @@ mod tests {
             sub: "test".to_string(),
             email: "test@example.com".to_string(),
             tenant_id: "tenant".to_string(),
+            jti: "test-jti-3".to_string(),
             exp: 123456,
             iat: 123400,
         };
@@ -119,6 +123,7 @@ mod tests {
         let cloned = claims.clone();
         assert_eq!(claims.sub, cloned.sub);
         assert_eq!(claims.email, cloned.email);
+        assert_eq!(claims.jti, cloned.jti);
         assert_eq!(claims.exp, cloned.exp);
     }
 
@@ -128,6 +133,7 @@ mod tests {
             sub: "debug-test".to_string(),
             email: "debug@test.com".to_string(),
             tenant_id: "tid".to_string(),
+            jti: "test-jti-4".to_string(),
             exp: 100,
             iat: 50,
         };
@@ -140,7 +146,7 @@ mod tests {
     #[test]
     fn test_claims_with_timestamps() {
         use chrono::Utc;
-        
+
         let now = Utc::now().timestamp();
         let future = now + 3600;
 
@@ -148,6 +154,7 @@ mod tests {
             sub: "user-id".to_string(),
             email: "user@example.com".to_string(),
             tenant_id: "tenant-id".to_string(),
+            jti: "test-jti-5".to_string(),
             exp: future,
             iat: now,
         };
@@ -162,6 +169,7 @@ mod tests {
             sub: "user".to_string(),
             email: "valid@example.com".to_string(),
             tenant_id: "tenant".to_string(),
+            jti: "test-jti-6".to_string(),
             exp: 1000,
             iat: 500,
         };
@@ -176,6 +184,7 @@ mod tests {
             sub: "user-sub".to_string(),
             email: "user@test.com".to_string(),
             tenant_id: "valid-tenant-id".to_string(),
+            jti: "test-jti-7".to_string(),
             exp: 2000,
             iat: 1000,
         };

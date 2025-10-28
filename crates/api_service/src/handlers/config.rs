@@ -2,7 +2,7 @@ use axum::{extract::State, http::StatusCode, Json};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::sync::Arc;
-use tracing::{debug, error, info};
+use tracing::{debug, info};
 
 use crate::AppState;
 
