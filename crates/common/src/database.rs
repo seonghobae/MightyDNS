@@ -889,8 +889,8 @@ fn verify_totp_code(secret: &str, code: &str) -> bool {
         return false;
     }
 
-    // Parse code to ensure it's numeric
-    if code.parse::<u32>().is_err() {
+    // Validate code is numeric
+    if !code.chars().all(|c| c.is_ascii_digit()) {
         return false;
     }
 
@@ -914,7 +914,12 @@ fn verify_totp_code(secret: &str, code: &str) -> bool {
         let time = (now as i64 + (time_offset * 30)) as u64;
         let totp = totp_custom::<Sha1>(30, 6, &secret_bytes, time);
 
-        if totp == code {
+        // Format TOTP as 6-digit zero-padded string and use constant-time comparison
+        let totp_str = format!("{:06}", totp);
+
+        // Use constant-time comparison to prevent timing attacks
+        use subtle::ConstantTimeEq;
+        if totp_str.as_bytes().ct_eq(code.as_bytes()).into() {
             return true;
         }
     }

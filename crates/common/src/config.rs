@@ -150,16 +150,27 @@ impl Default for AuthConfig {
 
 impl Config {
     pub fn from_env() -> crate::Result<Self> {
+        let environment = std::env::var("ENVIRONMENT").unwrap_or_else(|_| "development".to_string());
+
         let config = ConfigBuilder::builder()
             .add_source(File::with_name("config/default").required(false))
-            .add_source(File::with_name(&format!(
-                "config/{}",
-                std::env::var("ENVIRONMENT").unwrap_or_else(|_| "development".to_string())
-            )).required(false))
+            .add_source(File::with_name(&format!("config/{}", environment)).required(false))
             .add_source(Environment::with_prefix("MIGHTYDNS").separator("__"))
             .build()?;
 
-        Ok(config.try_deserialize()?)
+        let config: Config = config.try_deserialize()?;
+
+        // Fail fast if default JWT secret is used outside development
+        if environment != "development"
+            && environment != "test"
+            && config.auth.jwt_secret == "please-change-me-min-32-chars-entropy"
+        {
+            return Err(crate::Error::Config(
+                "Default JWT secret detected in non-development environment. Set MIGHTYDNS__AUTH__JWT_SECRET".into()
+            ));
+        }
+
+        Ok(config)
     }
 }
 

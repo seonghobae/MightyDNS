@@ -103,7 +103,7 @@ impl AuthService {
             .database
             .get_tenant_by_email(email)
             .await?
-            .ok_or_else(|| anyhow!("Tenant not found"))?;
+            .ok_or_else(|| anyhow!("Invalid or expired OTP"))?;
 
         // Verify OTP
         let is_valid = self
@@ -144,7 +144,7 @@ impl AuthService {
             .database
             .get_tenant_by_identifier(tenant_identifier)
             .await?
-            .ok_or_else(|| anyhow!("Tenant not found"))?;
+            .ok_or_else(|| anyhow!("Invalid or expired OTP"))?;
 
         // Generate TOTP secret
         let secret = generate_totp_secret();
@@ -176,7 +176,7 @@ impl AuthService {
             .database
             .get_tenant_by_email(email)
             .await?
-            .ok_or_else(|| anyhow!("Tenant not found"))?;
+            .ok_or_else(|| anyhow!("Invalid or expired OTP"))?;
 
         // Verify TOTP
         let is_valid = self
@@ -270,17 +270,18 @@ impl AuthService {
 
     /// Create a new tenant account
     async fn create_tenant(&self, email: &str) -> Result<TenantAccount> {
-        let tenant_id = Uuid::new_v4();
         let tenant_identifier = generate_tenant_identifier();
 
+        let tenant = self.database
+            .create_tenant(email, &tenant_identifier)
+            .await?;
+
         info!(
-            "Creating tenant: {} with identifier: {}",
-            tenant_id, tenant_identifier
+            "Created tenant: {} with identifier: {}",
+            tenant.tenant_id, tenant.tenant_identifier
         );
 
-        self.database
-            .create_tenant(email, &tenant_identifier)
-            .await
+        Ok(tenant)
     }
 
     /// Generate JWT token for tenant
@@ -416,6 +417,7 @@ mod tests {
             sub: "tenant-123".to_string(),
             email: "test@example.com".to_string(),
             tenant_id: "abc123def456".to_string(),
+            jti: Uuid::new_v4().to_string(),
             exp: 1234567890,
             iat: 1234567800,
         };
@@ -423,6 +425,7 @@ mod tests {
         assert_eq!(claims.sub, "tenant-123");
         assert_eq!(claims.email, "test@example.com");
         assert!(claims.exp > claims.iat);
+        assert!(!claims.jti.is_empty());
     }
 
     #[test]
@@ -431,6 +434,7 @@ mod tests {
             sub: Uuid::new_v4().to_string(),
             email: "user@test.com".to_string(),
             tenant_id: "testid".to_string(),
+            jti: Uuid::new_v4().to_string(),
             exp: Utc::now().timestamp() + 3600,
             iat: Utc::now().timestamp(),
         };

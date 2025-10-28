@@ -53,6 +53,21 @@ pub async fn update_config(
 ) -> Result<(StatusCode, Json<Value>), (StatusCode, Json<Value>)> {
     debug!("Update config request");
 
+    // Validate that at least one field is present (reject no-op updates)
+    if payload.config_name.is_none()
+        && payload.config_description.is_none()
+        && payload.is_dnssec_enabled.is_none()
+        && payload.is_logging_enabled.is_none()
+        && payload.blocked_response_ip.is_none()
+    {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(json!({
+                "error": "At least one field must be provided"
+            })),
+        ));
+    }
+
     // Validate blocked_response_ip if provided
     if let Some(ref ip) = payload.blocked_response_ip {
         if !is_valid_ipv4(ip) {

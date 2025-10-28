@@ -128,12 +128,13 @@ mod tests {
 
     #[test]
     fn test_setup_totp_request_structure() {
-        let request = SetupTotpRequest {
-            tenant_id: "test_tenant_123".to_string(),
-        };
-        
-        assert_eq!(request.tenant_id, "test_tenant_123");
-        assert!(!request.tenant_id.is_empty());
+        // SetupTotpRequest is an empty struct as tenant_id is extracted from JWT claims
+        let _request = SetupTotpRequest {};
+
+        // Verify it can be deserialized from JSON
+        let json = "{}";
+        let deserialized: SetupTotpRequest = serde_json::from_str(json).expect("Should deserialize");
+        assert!(format!("{:?}", deserialized).contains("SetupTotpRequest"));
     }
 
     #[test]
