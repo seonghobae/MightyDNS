@@ -52,7 +52,7 @@ pub async fn auth_middleware(
     let claims = token_data.claims;
 
     // Check if JWT has been revoked (logout)
-    let revoked_key = format!("revoked_jti:{}", claims.jti);
+    let revoked_key = format!("auth:revoked_jti:{}", claims.jti);
     if let Ok(Some(_)) = state.cache.get::<String>(&revoked_key).await {
         // Token has been revoked
         return Err(StatusCode::UNAUTHORIZED);

@@ -365,6 +365,25 @@ impl Cache {
             memory_weighted_size: self.memory_cache.weighted_size(),
         }
     }
+
+    /// Set a key-value pair in Valkey with TTL (for JWT revocation, etc.)
+    pub async fn set_with_ttl(
+        &self,
+        key: &str,
+        value: &str,
+        ttl_seconds: u64,
+    ) -> Result<()> {
+        use redis::AsyncCommands;
+
+        let mut conn = self.valkey_pool.get().await
+            .map_err(|e| Error::Internal(format!("Failed to get Valkey connection: {}", e)))?;
+
+        conn.set_ex(key, value, ttl_seconds)
+            .await
+            .map_err(|e| Error::Internal(format!("Failed to set key with TTL: {}", e)))?;
+
+        Ok(())
+    }
 }
 
 #[derive(Debug, Serialize)]

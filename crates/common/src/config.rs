@@ -101,7 +101,9 @@ impl Default for DatabaseConfig {
 impl Default for ValkeyConfig {
     fn default() -> Self {
         Self {
-            url: "valkey://localhost:6379/0".into(),
+            // Use redis:// scheme for compatibility with redis crate 0.24
+            // (valkey:// scheme requires redis crate >= 0.29.2)
+            url: "redis://localhost:6379/0".into(),
             pool_size: 100,
             timeout_ms: 1000,
         }

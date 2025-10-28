@@ -32,7 +32,7 @@ pub async fn logout(
 
     // Store revoked JTI in cache with TTL matching token expiry
     if let Err(e) = state.cache.set_with_ttl(
-        &format!("revoked_jti:{}", claims.jti),
+        &format!("auth:revoked_jti:{}", claims.jti),
         "1",
         ttl_seconds,
     ).await {
