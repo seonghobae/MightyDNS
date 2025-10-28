@@ -42,6 +42,6 @@ config.workspace = true
 num_cpus = "1.16"
 
 # Cryptography
-md5 = "0.7"
+sha2 = "0.10"
 totp-lite = "2.0"
 data-encoding = "2.5"

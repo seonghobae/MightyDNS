@@ -490,8 +490,11 @@ impl Database {
         token: &str,
         expires_at: chrono::DateTime<chrono::Utc>,
     ) -> Result<()> {
-        // Hash token for storage (simplified - should use proper hashing)
-        let token_hash = format!("{:x}", md5::compute(token));
+        // Hash token for storage using SHA-256
+        use sha2::{Sha256, Digest};
+        let mut hasher = Sha256::new();
+        hasher.update(token.as_bytes());
+        let token_hash = format!("{:x}", hasher.finalize());
 
         sqlx::query!(
             r#"

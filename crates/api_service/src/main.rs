@@ -56,7 +56,7 @@ async fn main() -> Result<()> {
     info!("Cache manager initialized");
 
     // Initialize NATS client
-    let nats = NatsClient::new(&config.nats.url).await?;
+    let nats = NatsClient::new(&config.nats).await?;
     info!("NATS client connected");
 
     // Initialize authentication service

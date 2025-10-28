@@ -1,10 +1,10 @@
 use axum::{
     extract::Request,
-    http::{HeaderMap, StatusCode},
+    http::{header::AUTHORIZATION, HeaderMap, StatusCode},
     middleware::Next,
     response::Response,
 };
-use jsonwebtoken::{decode, DecodingKey, Validation};
+use jsonwebtoken::{decode, Algorithm, DecodingKey, Validation};
 use serde::{Deserialize, Serialize};
 
 /// JWT claims structure (must match services::auth::Claims)
@@ -21,13 +21,13 @@ pub struct Claims {
 /// Authentication middleware - validates JWT tokens
 pub async fn auth_middleware(
     axum::extract::State(state): axum::extract::State<std::sync::Arc<crate::AppState>>,
-    headers: HeaderMap,
     mut req: Request,
     next: Next,
 ) -> Result<Response, StatusCode> {
     // Extract Authorization header
-    let auth_header = headers
-        .get("Authorization")
+    let auth_header = req
+        .headers()
+        .get(AUTHORIZATION)
         .and_then(|h| h.to_str().ok())
         .ok_or(StatusCode::UNAUTHORIZED)?;
 
@@ -36,13 +36,16 @@ pub async fn auth_middleware(
         return Err(StatusCode::UNAUTHORIZED);
     }
 
-    let token = &auth_header[7..];
+    let token = auth_header[7..].trim();
 
-    // Decode and validate JWT
+    // Decode and validate JWT with explicit algorithm
+    let mut validation = Validation::new(Algorithm::HS256);
+    validation.validate_exp = true;
+
     let token_data = decode::<Claims>(
         token,
         &DecodingKey::from_secret(state.config.auth.jwt_secret.as_bytes()),
-        &Validation::default(),
+        &validation,
     )
     .map_err(|_| StatusCode::UNAUTHORIZED)?;
 

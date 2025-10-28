@@ -1,7 +1,7 @@
 use axum::{
     body::Bytes,
     extract::{Path, Query, State},
-    http::StatusCode,
+    http::{header::CONTENT_TYPE, HeaderValue, StatusCode},
     response::IntoResponse,
     routing::{get, post},
     Router,
@@ -54,8 +54,8 @@ async fn handle_doh_get(
                 error!("Failed to decode base64 query: {}", e);
                 return (
                     StatusCode::BAD_REQUEST,
-                    "application/dns-message",
-                    vec![],
+                    [(CONTENT_TYPE, HeaderValue::from_static("application/dns-message"))],
+                    Vec::<u8>::new(),
                 )
                     .into_response();
             }
@@ -64,8 +64,8 @@ async fn handle_doh_get(
             error!("Missing 'dns' parameter in GET request");
             return (
                 StatusCode::BAD_REQUEST,
-                "application/dns-message",
-                vec![],
+                [(CONTENT_TYPE, HeaderValue::from_static("application/dns-message"))],
+                Vec::<u8>::new(),
             )
                 .into_response();
         }
@@ -101,7 +101,7 @@ async fn handle_doh_get(
                 }
             };
 
-            (StatusCode::OK, "application/dns-message", response_bytes).into_response()
+            (StatusCode::OK, [(CONTENT_TYPE, HeaderValue::from_static("application/dns-message"))], response_bytes).into_response()
         }
         Err(e) => {
             error!("DNS query resolution failed: {}", e);
@@ -153,7 +153,7 @@ async fn handle_doh_post(
                 }
             };
 
-            (StatusCode::OK, "application/dns-message", response_bytes).into_response()
+            (StatusCode::OK, [(CONTENT_TYPE, HeaderValue::from_static("application/dns-message"))], response_bytes).into_response()
         }
         Err(e) => {
             error!("DNS query resolution failed: {}", e);
