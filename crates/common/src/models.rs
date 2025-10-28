@@ -294,3 +294,267 @@ impl std::fmt::Display for BlockCategory {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_subscription_tier_query_limits() {
+        assert_eq!(SubscriptionTier::Free.monthly_query_limit(), Some(300_000));
+        assert_eq!(SubscriptionTier::Pro.monthly_query_limit(), None);
+        assert_eq!(SubscriptionTier::Family.monthly_query_limit(), None);
+        assert_eq!(SubscriptionTier::Business.monthly_query_limit(), None);
+    }
+
+    #[test]
+    fn test_subscription_tier_config_limits() {
+        assert_eq!(SubscriptionTier::Free.config_limit(), 1);
+        assert_eq!(SubscriptionTier::Pro.config_limit(), 10);
+        assert_eq!(SubscriptionTier::Family.config_limit(), 10);
+        assert_eq!(SubscriptionTier::Business.config_limit(), 50);
+    }
+
+    #[test]
+    fn test_block_category_display() {
+        assert_eq!(BlockCategory::Advertising.to_string(), "advertising");
+        assert_eq!(BlockCategory::MalwarePhishing.to_string(), "malware_phishing");
+        assert_eq!(BlockCategory::AdultContent.to_string(), "adult_content");
+        assert_eq!(BlockCategory::GamblingBetting.to_string(), "gambling_betting");
+        assert_eq!(BlockCategory::SocialMedia.to_string(), "social_media");
+        assert_eq!(BlockCategory::StreamingMedia.to_string(), "streaming_media");
+        assert_eq!(BlockCategory::TrackingTelemetry.to_string(), "tracking_telemetry");
+        assert_eq!(BlockCategory::Cryptomining.to_string(), "cryptomining");
+        assert_eq!(BlockCategory::PiracyTorrents.to_string(), "piracy_torrents");
+        assert_eq!(BlockCategory::CustomUser.to_string(), "custom_user");
+    }
+
+    #[test]
+    fn test_tenant_account_serialization() {
+        let tenant = TenantAccount {
+            tenant_id: Uuid::new_v4(),
+            email_address: "test@example.com".to_string(),
+            tenant_identifier: "test123".to_string(),
+            subscription_tier: SubscriptionTier::Free,
+            subscription_status: SubscriptionStatus::Active,
+            account_created_at: Utc::now(),
+            account_updated_at: Utc::now(),
+            is_account_active: true,
+        };
+
+        let json = serde_json::to_string(&tenant).expect("Failed to serialize");
+        let deserialized: TenantAccount = serde_json::from_str(&json).expect("Failed to deserialize");
+        
+        assert_eq!(tenant.tenant_id, deserialized.tenant_id);
+        assert_eq!(tenant.email_address, deserialized.email_address);
+        assert_eq!(tenant.tenant_identifier, deserialized.tenant_identifier);
+    }
+
+    #[test]
+    fn test_dns_result_type_variants() {
+        let allowed = DnsResultType::Allowed;
+        let blocked = DnsResultType::Blocked;
+        let whitelisted = DnsResultType::Whitelisted;
+        let error = DnsResultType::Error;
+
+        // Test serialization
+        assert_eq!(serde_json::to_string(&allowed).unwrap(), "\"allowed\"");
+        assert_eq!(serde_json::to_string(&blocked).unwrap(), "\"blocked\"");
+        assert_eq!(serde_json::to_string(&whitelisted).unwrap(), "\"whitelisted\"");
+        assert_eq!(serde_json::to_string(&error).unwrap(), "\"error\"");
+    }
+
+    #[test]
+    fn test_dns_query_type_variants() {
+        let types = vec![
+            DnsQueryType::A,
+            DnsQueryType::AAAA,
+            DnsQueryType::CNAME,
+            DnsQueryType::MX,
+            DnsQueryType::TXT,
+            DnsQueryType::NS,
+            DnsQueryType::SOA,
+            DnsQueryType::PTR,
+            DnsQueryType::SRV,
+        ];
+
+        // All should serialize without error
+        for query_type in types {
+            let json = serde_json::to_string(&query_type).expect("Serialization failed");
+            assert!(!json.is_empty());
+        }
+    }
+
+    #[test]
+    fn test_credential_type_variants() {
+        let fido2 = CredentialType::Fido2;
+        let totp = CredentialType::Totp;
+        let email_otp = CredentialType::EmailOtp;
+
+        // Test serialization with snake_case
+        assert_eq!(serde_json::to_string(&fido2).unwrap(), "\"fido2\"");
+        assert_eq!(serde_json::to_string(&totp).unwrap(), "\"totp\"");
+        assert_eq!(serde_json::to_string(&email_otp).unwrap(), "\"email_otp\"");
+    }
+
+    #[test]
+    fn test_subscription_status_variants() {
+        let statuses = vec![
+            SubscriptionStatus::Active,
+            SubscriptionStatus::Expired,
+            SubscriptionStatus::Cancelled,
+            SubscriptionStatus::Suspended,
+        ];
+
+        for status in statuses {
+            let json = serde_json::to_string(&status).unwrap();
+            let deserialized: SubscriptionStatus = serde_json::from_str(&json).unwrap();
+            assert_eq!(format!("{:?}", status), format!("{:?}", deserialized));
+        }
+    }
+
+    #[test]
+    fn test_tenant_config_structure() {
+        let config = TenantConfig {
+            config_id: Uuid::new_v4(),
+            tenant_id: Uuid::new_v4(),
+            config_name: "Default".to_string(),
+            config_description: Some("Default configuration".to_string()),
+            is_logging_enabled: true,
+            is_dnssec_enabled: false,
+            blocked_response_ip: "0.0.0.0".to_string(),
+            config_created_at: Utc::now(),
+            config_updated_at: Utc::now(),
+            is_config_active: true,
+        };
+
+        assert!(config.is_logging_enabled);
+        assert!(!config.is_dnssec_enabled);
+        assert_eq!(config.blocked_response_ip, "0.0.0.0");
+    }
+
+    #[test]
+    fn test_blocklist_entry_creation() {
+        let entry = BlockListEntry {
+            block_entry_id: 1,
+            block_domain_name: "malicious.com".to_string(),
+            source_id: Some(Uuid::new_v4()),
+            block_category: BlockCategory::MalwarePhishing,
+            block_reason: Some("Known malware distributor".to_string()),
+            block_added_at: Utc::now(),
+            block_updated_at: Utc::now(),
+            is_block_active: true,
+        };
+
+        assert_eq!(entry.block_domain_name, "malicious.com");
+        assert!(entry.is_block_active);
+        assert!(entry.block_reason.is_some());
+    }
+
+    #[test]
+    fn test_whitelist_entry_creation() {
+        let entry = WhiteListEntry {
+            white_entry_id: Uuid::new_v4(),
+            tenant_id: Uuid::new_v4(),
+            white_domain_name: "trusted.com".to_string(),
+            white_reason: Some("Business partner".to_string()),
+            white_added_at: Utc::now(),
+            is_white_active: true,
+        };
+
+        assert_eq!(entry.white_domain_name, "trusted.com");
+        assert!(entry.is_white_active);
+    }
+
+    #[test]
+    fn test_dns_query_log_serialization() {
+        let log = DnsQueryLog {
+            query_id: 12345,
+            tenant_id: Uuid::new_v4(),
+            config_id: Some(Uuid::new_v4()),
+            query_timestamp: Utc::now(),
+            query_domain_name: "example.com".to_string(),
+            query_type: DnsQueryType::A,
+            query_result_type: DnsResultType::Allowed,
+            response_ip_address: Some("93.184.216.34".to_string()),
+            query_latency_ms: Some(42),
+            query_source_protocol: Some("DoH".to_string()),
+            query_source_ip: Some("192.168.1.100".to_string()),
+        };
+
+        let json = serde_json::to_string(&log).expect("Serialization failed");
+        let deserialized: DnsQueryLog = serde_json::from_str(&json).expect("Deserialization failed");
+        
+        assert_eq!(log.query_domain_name, deserialized.query_domain_name);
+        assert_eq!(log.query_latency_ms, deserialized.query_latency_ms);
+    }
+
+    #[test]
+    fn test_auth_session_fields() {
+        let session = AuthSession {
+            session_id: Uuid::new_v4(),
+            tenant_id: Uuid::new_v4(),
+            session_token_hash: "abc123hash".to_string(),
+            session_ip_address: "192.168.1.1".to_string(),
+            session_user_agent: Some("Mozilla/5.0".to_string()),
+            session_created_at: Utc::now(),
+            session_expires_at: Utc::now() + chrono::Duration::hours(1),
+            session_last_activity_at: Utc::now(),
+            is_session_active: true,
+        };
+
+        assert!(session.is_session_active);
+        assert!(session.session_expires_at > session.session_created_at);
+        assert!(session.session_user_agent.is_some());
+    }
+
+    #[test]
+    fn test_ip_binding_structure() {
+        let binding = TenantIpBinding {
+            binding_id: Uuid::new_v4(),
+            tenant_id: Uuid::new_v4(),
+            config_id: Uuid::new_v4(),
+            ip_address: "10.0.0.5".to_string(),
+            ip_description: Some("Home network".to_string()),
+            binding_created_at: Utc::now(),
+            binding_expires_at: Some(Utc::now() + chrono::Duration::days(30)),
+            is_binding_active: true,
+        };
+
+        assert_eq!(binding.ip_address, "10.0.0.5");
+        assert!(binding.binding_expires_at.is_some());
+    }
+
+    #[test]
+    fn test_subscription_tier_ordering() {
+        // Test that free tier has most restrictive limits
+        assert!(SubscriptionTier::Free.config_limit() < SubscriptionTier::Pro.config_limit());
+        assert!(SubscriptionTier::Free.config_limit() < SubscriptionTier::Business.config_limit());
+        
+        // Test that free tier has query limit while others don't
+        assert!(SubscriptionTier::Free.monthly_query_limit().is_some());
+        assert!(SubscriptionTier::Pro.monthly_query_limit().is_none());
+    }
+
+    #[test]
+    fn test_block_category_serialization_roundtrip() {
+        let categories = vec![
+            BlockCategory::Advertising,
+            BlockCategory::MalwarePhishing,
+            BlockCategory::AdultContent,
+            BlockCategory::GamblingBetting,
+            BlockCategory::SocialMedia,
+            BlockCategory::StreamingMedia,
+            BlockCategory::TrackingTelemetry,
+            BlockCategory::Cryptomining,
+            BlockCategory::PiracyTorrents,
+            BlockCategory::CustomUser,
+        ];
+
+        for category in categories {
+            let json = serde_json::to_string(&category).unwrap();
+            let deserialized: BlockCategory = serde_json::from_str(&json).unwrap();
+            assert_eq!(category.to_string(), deserialized.to_string());
+        }
+    }
+}

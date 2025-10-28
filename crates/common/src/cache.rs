@@ -373,9 +373,173 @@ pub struct CacheStats {
     pub memory_weighted_size: u64,
 }
 
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    // Tests will be added in a separate commit
+    #[test]
+    fn test_cache_value_variants() {
+        let tenant_lookup = CacheValue::TenantLookup(None);
+        let blocklist_status = CacheValue::BlocklistStatus(true);
+        let whitelist_status = CacheValue::WhitelistStatus(false);
+        let filter_result = CacheValue::FilterResult(DnsResultType::Allowed);
+        let string_value = CacheValue::String("test".to_string());
+
+        // All variants should be created successfully
+        match tenant_lookup {
+            CacheValue::TenantLookup(_) => (),
+            _ => panic!("Wrong variant"),
+        }
+        match blocklist_status {
+            CacheValue::BlocklistStatus(true) => (),
+            _ => panic!("Wrong variant"),
+        }
+        match whitelist_status {
+            CacheValue::WhitelistStatus(false) => (),
+            _ => panic!("Wrong variant"),
+        }
+        match filter_result {
+            CacheValue::FilterResult(_) => (),
+            _ => panic!("Wrong variant"),
+        }
+        match string_value {
+            CacheValue::String(_) => (),
+            _ => panic!("Wrong variant"),
+        }
+    }
+
+    #[test]
+    fn test_cache_value_serialization() {
+        let value = CacheValue::BlocklistStatus(true);
+        let json = serde_json::to_string(&value).expect("Serialization failed");
+        let deserialized: CacheValue = serde_json::from_str(&json).expect("Deserialization failed");
+        
+        match deserialized {
+            CacheValue::BlocklistStatus(status) => assert!(status),
+            _ => panic!("Wrong variant after deserialization"),
+        }
+    }
+
+    #[test]
+    fn test_tenant_lookup_result_structure() {
+        let tenant = TenantAccount {
+            tenant_id: Uuid::new_v4(),
+            email_address: "test@example.com".to_string(),
+            tenant_identifier: "test123".to_string(),
+            subscription_tier: SubscriptionTier::Free,
+            subscription_status: SubscriptionStatus::Active,
+            account_created_at: chrono::Utc::now(),
+            account_updated_at: chrono::Utc::now(),
+            is_account_active: true,
+        };
+
+        let config = TenantConfig {
+            config_id: Uuid::new_v4(),
+            tenant_id: tenant.tenant_id,
+            config_name: "Default".to_string(),
+            config_description: None,
+            is_logging_enabled: true,
+            is_dnssec_enabled: false,
+            blocked_response_ip: "0.0.0.0".to_string(),
+            config_created_at: chrono::Utc::now(),
+            config_updated_at: chrono::Utc::now(),
+            is_config_active: true,
+        };
+
+        let result = TenantLookupResult {
+            tenant: tenant.clone(),
+            config: config.clone(),
+        };
+
+        assert_eq!(result.tenant.email_address, tenant.email_address);
+        assert_eq!(result.config.config_name, config.config_name);
+    }
+
+    #[test]
+    fn test_cache_stats_structure() {
+        let stats = CacheStats {
+            memory_entry_count: 1000,
+            memory_weighted_size: 5000000,
+        };
+
+        assert_eq!(stats.memory_entry_count, 1000);
+        assert_eq!(stats.memory_weighted_size, 5000000);
+    }
+
+    #[test]
+    fn test_cache_stats_serialization() {
+        let stats = CacheStats {
+            memory_entry_count: 500,
+            memory_weighted_size: 2500000,
+        };
+
+        let json = serde_json::to_string(&stats).expect("Serialization failed");
+        assert!(json.contains("memory_entry_count"));
+        assert!(json.contains("memory_weighted_size"));
+    }
+
+    #[test]
+    fn test_cache_value_clone() {
+        let value = CacheValue::String("test value".to_string());
+        let cloned = value.clone();
+
+        match (value, cloned) {
+            (CacheValue::String(s1), CacheValue::String(s2)) => assert_eq!(s1, s2),
+            _ => panic!("Clone failed"),
+        }
+    }
+
+    #[test]
+    fn test_dns_result_type_in_cache_value() {
+        let allowed = CacheValue::FilterResult(DnsResultType::Allowed);
+        let blocked = CacheValue::FilterResult(DnsResultType::Blocked);
+        let whitelisted = CacheValue::FilterResult(DnsResultType::Whitelisted);
+        let error = CacheValue::FilterResult(DnsResultType::Error);
+
+        // All should serialize successfully
+        let _ = serde_json::to_string(&allowed).unwrap();
+        let _ = serde_json::to_string(&blocked).unwrap();
+        let _ = serde_json::to_string(&whitelisted).unwrap();
+        let _ = serde_json::to_string(&error).unwrap();
+    }
+
+    #[test]
+    fn test_tenant_lookup_result_serialization() {
+        let tenant = TenantAccount {
+            tenant_id: Uuid::new_v4(),
+            email_address: "cache@test.com".to_string(),
+            tenant_identifier: "cache123".to_string(),
+            subscription_tier: SubscriptionTier::Pro,
+            subscription_status: SubscriptionStatus::Active,
+            account_created_at: chrono::Utc::now(),
+            account_updated_at: chrono::Utc::now(),
+            is_account_active: true,
+        };
+
+        let config = TenantConfig {
+            config_id: Uuid::new_v4(),
+            tenant_id: tenant.tenant_id,
+            config_name: "Test Config".to_string(),
+            config_description: Some("Test description".to_string()),
+            is_logging_enabled: false,
+            is_dnssec_enabled: true,
+            blocked_response_ip: "127.0.0.1".to_string(),
+            config_created_at: chrono::Utc::now(),
+            config_updated_at: chrono::Utc::now(),
+            is_config_active: true,
+        };
+
+        let lookup_result = TenantLookupResult {
+            tenant,
+            config,
+        };
+
+        let json = serde_json::to_string(&lookup_result).expect("Serialization failed");
+        let deserialized: TenantLookupResult = serde_json::from_str(&json)
+            .expect("Deserialization failed");
+
+        assert_eq!(lookup_result.tenant.email_address, deserialized.tenant.email_address);
+        assert_eq!(lookup_result.config.config_name, deserialized.config.config_name);
+    }
 }

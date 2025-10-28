@@ -130,16 +130,154 @@ fn is_valid_email(email: &str) -> bool {
     email.contains('@') && email.len() >= 5 && email.len() <= 255
 }
 
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn test_email_validation() {
+    fn test_email_validation_valid_emails() {
         assert!(is_valid_email("user@example.com"));
-        assert!(is_valid_email("test+tag@domain.co.uk"));
+        assert!(is_valid_email("test@test.co.uk"));
+        assert!(is_valid_email("first.last@company.com"));
+        assert!(is_valid_email("user+tag@domain.org"));
+        assert!(is_valid_email("a@b.c"));
+        assert!(is_valid_email("test_user@example.com"));
+        assert!(is_valid_email("123@456.789"));
+    }
+
+    #[test]
+    fn test_email_validation_invalid_emails() {
         assert!(!is_valid_email("invalid"));
         assert!(!is_valid_email("@example.com"));
         assert!(!is_valid_email("user@"));
+        assert!(!is_valid_email("user"));
+        assert!(!is_valid_email("@"));
+        assert!(!is_valid_email(""));
+        assert!(!is_valid_email("a@b"));  // Too short
+    }
+
+    #[test]
+    fn test_email_validation_edge_cases() {
+        // Too short
+        assert!(!is_valid_email("a@b"));
+        assert!(!is_valid_email("a@bc"));
+        assert!(is_valid_email("a@b.c"));  // Exactly 5 chars
+
+        // Too long (over 255 chars)
+        let long_email = format!("{}@example.com", "a".repeat(250));
+        assert!(!is_valid_email(&long_email));
+
+        // Multiple @ signs
+        assert!(!is_valid_email("user@@example.com"));
+
+        // Whitespace
+        assert!(!is_valid_email("user @example.com"));
+        assert!(!is_valid_email(" user@example.com"));
+        assert!(!is_valid_email("user@example.com "));
+    }
+
+    #[test]
+    fn test_email_validation_length_boundaries() {
+        // 5 characters - minimum valid
+        assert!(is_valid_email("a@b.c"));
+        
+        // 255 characters - maximum valid
+        let max_email = format!("{}@b.c", "a".repeat(250));
+        assert_eq!(max_email.len(), 255);
+        assert!(is_valid_email(&max_email));
+        
+        // 256 characters - invalid
+        let too_long = format!("{}@b.c", "a".repeat(251));
+        assert_eq!(too_long.len(), 256);
+        assert!(!is_valid_email(&too_long));
+    }
+
+    #[test]
+    fn test_email_validation_special_characters() {
+        assert!(is_valid_email("user+tag@example.com"));
+        assert!(is_valid_email("user.name@example.com"));
+        assert!(is_valid_email("user_name@example.com"));
+        assert!(is_valid_email("user-name@example.com"));
+        assert!(!is_valid_email("user name@example.com"));  // No spaces
+    }
+
+    #[test]
+    fn test_request_otp_request_structure() {
+        let request = RequestOtpRequest {
+            email_address: "test@example.com".to_string(),
+        };
+        assert_eq!(request.email_address, "test@example.com");
+    }
+
+    #[test]
+    fn test_request_otp_response_structure() {
+        let response = RequestOtpResponse {
+            success: true,
+            message: "OTP sent".to_string(),
+            expires_in_seconds: 600,
+        };
+        
+        assert!(response.success);
+        assert_eq!(response.expires_in_seconds, 600);
+        assert!(!response.message.is_empty());
+    }
+
+    #[test]
+    fn test_verify_otp_request_structure() {
+        let request = VerifyOtpRequest {
+            email_address: "test@example.com".to_string(),
+            otp_code: "123456".to_string(),
+        };
+        
+        assert_eq!(request.email_address, "test@example.com");
+        assert_eq!(request.otp_code, "123456");
+    }
+
+    #[test]
+    fn test_verify_otp_response_success() {
+        let response = VerifyOtpResponse {
+            success: true,
+            token: Some("jwt.token.here".to_string()),
+            tenant_id: Some("tenant123".to_string()),
+            message: "Success".to_string(),
+        };
+        
+        assert!(response.success);
+        assert!(response.token.is_some());
+        assert!(response.tenant_id.is_some());
+    }
+
+    #[test]
+    fn test_verify_otp_response_failure() {
+        let response = VerifyOtpResponse {
+            success: false,
+            token: None,
+            tenant_id: None,
+            message: "Invalid OTP".to_string(),
+        };
+        
+        assert!(!response.success);
+        assert!(response.token.is_none());
+        assert!(response.tenant_id.is_none());
+    }
+
+    #[test]
+    fn test_email_validation_case_sensitivity() {
+        // Email addresses should work with any case
+        assert!(is_valid_email("User@Example.COM"));
+        assert!(is_valid_email("USER@EXAMPLE.COM"));
+        assert!(is_valid_email("user@example.com"));
+    }
+
+    #[test]
+    fn test_email_validation_international_domains() {
+        // Basic ASCII domains
+        assert!(is_valid_email("user@example.com"));
+        assert!(is_valid_email("user@sub.domain.example.com"));
+        
+        // Domains with hyphens
+        assert!(is_valid_email("user@my-domain.com"));
+        assert!(is_valid_email("user@my-company.co.uk"));
     }
 }
