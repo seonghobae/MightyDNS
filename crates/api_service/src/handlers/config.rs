@@ -10,18 +10,18 @@ use crate::AppState;
 pub struct ConfigResponse {
     pub config_id: String,
     pub config_name: String,
-    pub is_blocking_enabled: bool,
+    pub config_description: Option<String>,
+    pub is_dnssec_enabled: bool,
     pub is_logging_enabled: bool,
     pub blocked_response_ip: String,
-    pub dns_over_https_enabled: bool,
-    pub dns_over_tls_enabled: bool,
     pub created_at: String,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct UpdateConfigRequest {
     pub config_name: Option<String>,
-    pub is_blocking_enabled: Option<bool>,
+    pub config_description: Option<String>,
+    pub is_dnssec_enabled: Option<bool>,
     pub is_logging_enabled: Option<bool>,
     pub blocked_response_ip: Option<String>,
 }

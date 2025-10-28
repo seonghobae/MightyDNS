@@ -152,8 +152,8 @@ impl Database {
     // Tenant Config Queries
     // ============================================================================
 
-    /// Get tenant config by ID
-    pub async fn get_config_by_id(&self, config_id: &Uuid) -> Result<Option<TenantConfig>> {
+    /// Get tenant config by ID with tenant isolation
+    pub async fn get_config_by_id(&self, tenant_id: &Uuid, config_id: &Uuid) -> Result<Option<TenantConfig>> {
         let config = sqlx::query_as!(
             TenantConfig,
             r#"
@@ -169,9 +169,10 @@ impl Database {
                 config_updated_at,
                 is_config_active
             FROM tenant_config
-            WHERE config_id = $1 AND is_config_active = TRUE
+            WHERE config_id = $1 AND tenant_id = $2 AND is_config_active = TRUE
             "#,
-            config_id
+            config_id,
+            tenant_id
         )
         .fetch_optional(&self.pool)
         .await?;
@@ -830,7 +831,8 @@ impl Database {
         config_id: &Uuid,
         tenant_id: &Uuid,
         config_name: Option<&str>,
-        is_blocking_enabled: Option<bool>,
+        config_description: Option<&str>,
+        is_dnssec_enabled: Option<bool>,
         is_logging_enabled: Option<bool>,
         blocked_response_ip: Option<&str>,
     ) -> Result<TenantConfig> {
@@ -840,28 +842,29 @@ impl Database {
             UPDATE tenant_config
             SET
                 config_name = COALESCE($3, config_name),
-                is_blocking_enabled = COALESCE($4, is_blocking_enabled),
-                is_logging_enabled = COALESCE($5, is_logging_enabled),
-                blocked_response_ip = COALESCE($6, blocked_response_ip),
+                config_description = COALESCE($4, config_description),
+                is_dnssec_enabled = COALESCE($5, is_dnssec_enabled),
+                is_logging_enabled = COALESCE($6, is_logging_enabled),
+                blocked_response_ip = COALESCE($7, blocked_response_ip),
                 config_updated_at = NOW()
             WHERE config_id = $1 AND tenant_id = $2
             RETURNING
                 config_id,
                 tenant_id,
                 config_name,
-                is_blocking_enabled,
+                config_description,
                 is_logging_enabled,
-                blocked_response_ip,
+                is_dnssec_enabled,
+                blocked_response_ip::TEXT as "blocked_response_ip!",
                 config_created_at,
                 config_updated_at,
-                is_config_active,
-                dns_over_https_enabled,
-                dns_over_tls_enabled
+                is_config_active
             "#,
             config_id,
             tenant_id,
             config_name,
-            is_blocking_enabled,
+            config_description,
+            is_dnssec_enabled,
             is_logging_enabled,
             blocked_response_ip
         )
