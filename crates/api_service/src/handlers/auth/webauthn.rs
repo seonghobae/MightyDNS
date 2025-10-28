@@ -6,6 +6,14 @@ use tracing::{debug, error, info};
 
 use crate::AppState;
 
+/// Mask email address for logging (show only domain)
+fn mask_email(email: &str) -> String {
+    email.split('@')
+        .last()
+        .map(|domain| format!("***@{}", domain))
+        .unwrap_or_else(|| "***".to_string())
+}
+
 #[derive(Debug, Deserialize)]
 pub struct RegisterStartRequest {
     pub email_address: String,
@@ -60,7 +68,7 @@ pub async fn register_start(
     State(state): State<Arc<AppState>>,
     Json(payload): Json<RegisterStartRequest>,
 ) -> Result<(StatusCode, Json<RegisterStartResponse>), (StatusCode, Json<Value>)> {
-    debug!("WebAuthn registration start for: {}", payload.email_address);
+    debug!("WebAuthn registration start for: {}", mask_email(&payload.email_address));
 
     match state
         .auth_service
@@ -68,7 +76,7 @@ pub async fn register_start(
         .await
     {
         Ok(challenge) => {
-            info!("WebAuthn registration challenge created for {}", payload.email_address);
+            info!("WebAuthn registration challenge created for {}", mask_email(&payload.email_address));
             Ok((
                 StatusCode::OK,
                 Json(RegisterStartResponse {
@@ -82,8 +90,7 @@ pub async fn register_start(
             Err((
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(json!({
-                    "error": "Failed to start registration",
-                    "error": "Operation failed"
+                    "error": "Failed to start registration"
                 })),
             ))
         }
@@ -96,7 +103,7 @@ pub async fn register_finish(
     State(state): State<Arc<AppState>>,
     Json(payload): Json<RegisterFinishRequest>,
 ) -> Result<(StatusCode, Json<RegisterFinishResponse>), (StatusCode, Json<Value>)> {
-    debug!("WebAuthn registration finish for: {}", payload.email_address);
+    debug!("WebAuthn registration finish for: {}", mask_email(&payload.email_address));
 
     match state
         .auth_service
@@ -104,7 +111,7 @@ pub async fn register_finish(
         .await
     {
         Ok(_) => {
-            info!("WebAuthn registration successful for {}", payload.email_address);
+            info!("WebAuthn registration successful for {}", mask_email(&payload.email_address));
             Ok((
                 StatusCode::OK,
                 Json(RegisterFinishResponse {
@@ -118,8 +125,7 @@ pub async fn register_finish(
             Err((
                 StatusCode::BAD_REQUEST,
                 Json(json!({
-                    "error": "Failed to complete registration",
-                    "error": "Operation failed"
+                    "error": "Failed to complete registration"
                 })),
             ))
         }
@@ -132,7 +138,7 @@ pub async fn login_start(
     State(state): State<Arc<AppState>>,
     Json(payload): Json<LoginStartRequest>,
 ) -> Result<(StatusCode, Json<LoginStartResponse>), (StatusCode, Json<Value>)> {
-    debug!("WebAuthn login start for: {}", payload.email_address);
+    debug!("WebAuthn login start for: {}", mask_email(&payload.email_address));
 
     match state
         .auth_service
@@ -140,7 +146,7 @@ pub async fn login_start(
         .await
     {
         Ok(challenge) => {
-            info!("WebAuthn login challenge created for {}", payload.email_address);
+            info!("WebAuthn login challenge created for {}", mask_email(&payload.email_address));
             Ok((
                 StatusCode::OK,
                 Json(LoginStartResponse {
@@ -154,8 +160,7 @@ pub async fn login_start(
             Err((
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(json!({
-                    "error": "Failed to start login",
-                    "error": "Operation failed"
+                    "error": "Failed to start login"
                 })),
             ))
         }
@@ -168,7 +173,7 @@ pub async fn login_finish(
     State(state): State<Arc<AppState>>,
     Json(payload): Json<LoginFinishRequest>,
 ) -> Result<(StatusCode, Json<LoginFinishResponse>), (StatusCode, Json<Value>)> {
-    debug!("WebAuthn login finish for: {}", payload.email_address);
+    debug!("WebAuthn login finish for: {}", mask_email(&payload.email_address));
 
     match state
         .auth_service
@@ -192,8 +197,7 @@ pub async fn login_finish(
             Err((
                 StatusCode::UNAUTHORIZED,
                 Json(json!({
-                    "error": "Authentication failed",
-                    "error": "Operation failed"
+                    "error": "Authentication failed"
                 })),
             ))
         }

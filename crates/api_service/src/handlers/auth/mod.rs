@@ -18,6 +18,18 @@ pub async fn logout(
     // Revoke JWT by storing jti in Valkey with TTL
     let ttl_seconds = (claims.exp - chrono::Utc::now().timestamp()).max(0) as u64;
 
+    // Skip cache write for already-expired tokens (TTL=0)
+    if ttl_seconds == 0 {
+        info!("User logged out (jti={}, tenant_id={}) - token already expired", claims.jti, claims.tenant_id);
+        return Ok((
+            StatusCode::OK,
+            Json(json!({
+                "success": true,
+                "message": "Logged out successfully"
+            })),
+        ));
+    }
+
     // Store revoked JTI in cache with TTL matching token expiry
     if let Err(e) = state.cache.set_with_ttl(
         &format!("revoked_jti:{}", claims.jti),
@@ -33,7 +45,7 @@ pub async fn logout(
         ));
     }
 
-    info!("User logged out: {}", claims.email);
+    info!("User logged out (jti={}, tenant_id={})", claims.jti, claims.tenant_id);
 
     Ok((
         StatusCode::OK,

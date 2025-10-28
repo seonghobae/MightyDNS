@@ -490,12 +490,17 @@ impl Database {
         tenant_id: &Uuid,
         token: &str,
         expires_at: chrono::DateTime<chrono::Utc>,
+        secret: &str,
     ) -> Result<()> {
-        // Hash token for storage using SHA-256
-        use sha2::{Sha256, Digest};
-        let mut hasher = Sha256::new();
-        hasher.update(token.as_bytes());
-        let token_hash = format!("{:x}", hasher.finalize());
+        // Hash token for storage using HMAC-SHA256 with server secret
+        use hmac::{Hmac, Mac};
+        use sha2::Sha256;
+
+        type HmacSha256 = Hmac<Sha256>;
+        let mut mac = HmacSha256::new_from_slice(secret.as_bytes())
+            .expect("HMAC can take key of any size");
+        mac.update(token.as_bytes());
+        let token_hash = format!("{:x}", mac.finalize().into_bytes());
 
         sqlx::query!(
             r#"

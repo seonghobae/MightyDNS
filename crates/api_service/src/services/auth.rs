@@ -9,6 +9,14 @@ use std::sync::Arc;
 use tracing::{debug, error, info};
 use uuid::Uuid;
 
+/// Mask email address for logging (show only domain to avoid PII exposure)
+fn mask_email(email: &str) -> String {
+    email.split('@')
+        .last()
+        .map(|domain| format!("***@{}", domain))
+        .unwrap_or_else(|| "***".to_string())
+}
+
 /// JWT claims structure
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Claims {
@@ -42,7 +50,7 @@ impl AuthService {
 
     /// Request OTP via email
     pub async fn request_email_otp(&self, email: &str) -> Result<i64> {
-        debug!("Requesting OTP for email: {}", email);
+        debug!("Requesting OTP for email: {}", mask_email(email));
 
         // Check if tenant exists, create if not
         let tenant = match self.database.get_tenant_by_email(email).await? {
@@ -51,7 +59,7 @@ impl AuthService {
                 t
             }
             None => {
-                info!("Creating new tenant for email: {}", email);
+                info!("Creating new tenant for email: {}", mask_email(email));
                 self.create_tenant(email).await?
             }
         };
@@ -88,7 +96,7 @@ impl AuthService {
 
     /// Verify OTP and create session
     pub async fn verify_email_otp(&self, email: &str, otp_code: &str) -> Result<(TenantAccount, String)> {
-        debug!("Verifying OTP for email: {}", email);
+        debug!("Verifying OTP for email: {}", mask_email(email));
 
         // Get tenant
         let tenant = self
@@ -197,7 +205,7 @@ impl AuthService {
 
     /// Start WebAuthn registration
     pub async fn webauthn_register_start(&self, email: &str) -> Result<Value> {
-        debug!("Starting WebAuthn registration for: {}", email);
+        debug!("Starting WebAuthn registration for: {}", mask_email(email));
 
         // TODO: Implement WebAuthn registration using webauthn-rs
         // For now, return a placeholder
@@ -235,7 +243,7 @@ impl AuthService {
 
     /// Start WebAuthn login
     pub async fn webauthn_login_start(&self, email: &str) -> Result<Value> {
-        debug!("Starting WebAuthn login for: {}", email);
+        debug!("Starting WebAuthn login for: {}", mask_email(email));
 
         // TODO: Implement WebAuthn login using webauthn-rs
         Ok(json!({
@@ -306,7 +314,7 @@ impl AuthService {
         let expires_at = Utc::now() + Duration::hours(self.config.auth.jwt_expiry_hours);
 
         self.database
-            .create_session(tenant_id, token, expires_at)
+            .create_session(tenant_id, token, expires_at, &self.config.auth.jwt_secret)
             .await
     }
 }

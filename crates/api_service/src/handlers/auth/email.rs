@@ -38,7 +38,7 @@ pub async fn request_otp(
     State(state): State<Arc<AppState>>,
     Json(payload): Json<RequestOtpRequest>,
 ) -> Result<(StatusCode, Json<RequestOtpResponse>), (StatusCode, Json<Value>)> {
-    debug!("OTP request for email: {}", payload.email_address);
+    debug!("OTP request for email: {}", mask_email(&payload.email_address));
 
     // Validate email format
     if !is_valid_email(&payload.email_address) {
@@ -57,12 +57,7 @@ pub async fn request_otp(
         .await
     {
         Ok(expires_in) => {
-            // Mask email in logs (show only domain)
-            let masked_email = payload.email_address.split('@')
-                .last()
-                .map(|domain| format!("***@{}", domain))
-                .unwrap_or_else(|| "***".to_string());
-            info!("OTP sent to {}", masked_email);
+            info!("OTP sent to {}", mask_email(&payload.email_address));
 
             Ok((
                 StatusCode::OK,
@@ -74,12 +69,15 @@ pub async fn request_otp(
             ))
         }
         Err(e) => {
+            // Log error server-side but return generic success to prevent enumeration
             error!("Failed to send OTP: {}", e);
-            Err((
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(json!({
-                    "error": "Failed to send OTP"
-                })),
+            Ok((
+                StatusCode::OK,
+                Json(RequestOtpResponse {
+                    success: true,
+                    message: "If the address exists, an OTP was sent".to_string(),
+                    expires_in_seconds: 0,
+                }),
             ))
         }
     }
@@ -91,12 +89,17 @@ pub async fn verify_otp(
     State(state): State<Arc<AppState>>,
     Json(payload): Json<VerifyOtpRequest>,
 ) -> Result<(StatusCode, Json<VerifyOtpResponse>), (StatusCode, Json<Value>)> {
-    // Mask email in logs (show only domain)
-    let masked_email = payload.email_address.split('@')
-        .last()
-        .map(|domain| format!("***@{}", domain))
-        .unwrap_or_else(|| "***".to_string());
-    debug!("OTP verification attempt for email: {}", masked_email);
+    // Validate OTP format (must be exactly 6 digits)
+    if payload.otp_code.len() != 6 || !payload.otp_code.chars().all(|c| c.is_ascii_digit()) {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(json!({
+                "error": "Invalid OTP format"
+            })),
+        ));
+    }
+
+    debug!("OTP verification attempt for email: {}", mask_email(&payload.email_address));
 
     // Verify OTP through auth service
     match state
@@ -134,6 +137,14 @@ pub async fn verify_otp(
 /// Basic email validation
 fn is_valid_email(email: &str) -> bool {
     email.contains('@') && email.len() >= 5 && email.len() <= 255
+}
+
+/// Mask email address for logging (show only domain)
+fn mask_email(email: &str) -> String {
+    email.split('@')
+        .last()
+        .map(|domain| format!("***@{}", domain))
+        .unwrap_or_else(|| "***".to_string())
 }
 
 
