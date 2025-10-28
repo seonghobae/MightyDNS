@@ -579,8 +579,45 @@ impl Database {
         Ok(())
     }
 
-    /// Verify email OTP for tenant
+    /// Verify email OTP for tenant with rate limiting
     pub async fn verify_email_otp(&self, tenant_id: &Uuid, otp_code: &str) -> Result<bool> {
+        // Check if account is locked
+        let lock_check = sqlx::query!(
+            r#"
+            SELECT locked_until, verification_attempts
+            FROM email_otp
+            WHERE tenant_id = $1
+            "#,
+            tenant_id
+        )
+        .fetch_optional(&self.pool)
+        .await?;
+
+        if let Some(lock_row) = lock_check {
+            // Check if account is currently locked
+            if let Some(locked_until) = lock_row.locked_until {
+                if locked_until > chrono::Utc::now() {
+                    return Err(anyhow::anyhow!("Account locked due to too many failed attempts. Try again later."));
+                }
+            }
+
+            // Check if too many attempts (even if not locked yet)
+            if lock_row.verification_attempts >= 5 {
+                // Lock the account for 15 minutes
+                let locked_until = chrono::Utc::now() + chrono::Duration::minutes(15);
+                sqlx::query!(
+                    "UPDATE email_otp SET locked_until = $1 WHERE tenant_id = $2",
+                    locked_until,
+                    tenant_id
+                )
+                .execute(&self.pool)
+                .await?;
+
+                return Err(anyhow::anyhow!("Too many failed attempts. Account locked for 15 minutes."));
+            }
+        }
+
+        // Fetch OTP record
         let result = sqlx::query!(
             r#"
             SELECT otp_code, expires_at
@@ -594,7 +631,34 @@ impl Database {
         .await?;
 
         match result {
-            Some(row) => Ok(row.otp_code == otp_code),
+            Some(row) => {
+                let is_valid = row.otp_code == otp_code;
+
+                if is_valid {
+                    // Reset attempts on success and delete OTP
+                    sqlx::query!(
+                        "UPDATE email_otp SET verification_attempts = 0 WHERE tenant_id = $1",
+                        tenant_id
+                    )
+                    .execute(&self.pool)
+                    .await?;
+                    Ok(true)
+                } else {
+                    // Increment failed attempts
+                    sqlx::query!(
+                        r#"
+                        UPDATE email_otp
+                        SET verification_attempts = verification_attempts + 1,
+                            last_attempt_at = NOW()
+                        WHERE tenant_id = $1
+                        "#,
+                        tenant_id
+                    )
+                    .execute(&self.pool)
+                    .await?;
+                    Ok(false)
+                }
+            }
             None => Ok(false),
         }
     }

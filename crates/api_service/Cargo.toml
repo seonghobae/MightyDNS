@@ -57,3 +57,7 @@ dotenvy.workspace = true
 
 # URL encoding
 urlencoding = "2.1"
+
+# Rate limiting
+tower-governor = "0.4"
+rand = "0.8"

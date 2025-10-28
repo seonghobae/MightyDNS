@@ -48,6 +48,9 @@ pub struct DnsConfig {
     pub doh_port: u16,
     pub dot_port: u16,
     pub udp_port: u16,
+    // TLS configuration for DoT
+    pub tls_cert_path: Option<String>,
+    pub tls_key_path: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
