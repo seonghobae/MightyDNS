@@ -57,7 +57,13 @@ pub async fn request_otp(
         .await
     {
         Ok(expires_in) => {
-            info!("OTP sent to {}", payload.email_address);
+            // Mask email in logs (show only domain)
+            let masked_email = payload.email_address.split('@')
+                .last()
+                .map(|domain| format!("***@{}", domain))
+                .unwrap_or_else(|| "***".to_string());
+            info!("OTP sent to {}", masked_email);
+
             Ok((
                 StatusCode::OK,
                 Json(RequestOtpResponse {
@@ -72,8 +78,7 @@ pub async fn request_otp(
             Err((
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(json!({
-                    "error": "Failed to send OTP",
-                    "details": e.to_string()
+                    "error": "Failed to send OTP"
                 })),
             ))
         }
@@ -86,10 +91,12 @@ pub async fn verify_otp(
     State(state): State<Arc<AppState>>,
     Json(payload): Json<VerifyOtpRequest>,
 ) -> Result<(StatusCode, Json<VerifyOtpResponse>), (StatusCode, Json<Value>)> {
-    debug!(
-        "OTP verification attempt for email: {}",
-        payload.email_address
-    );
+    // Mask email in logs (show only domain)
+    let masked_email = payload.email_address.split('@')
+        .last()
+        .map(|domain| format!("***@{}", domain))
+        .unwrap_or_else(|| "***".to_string());
+    debug!("OTP verification attempt for email: {}", masked_email);
 
     // Verify OTP through auth service
     match state
@@ -117,8 +124,7 @@ pub async fn verify_otp(
             Err((
                 StatusCode::UNAUTHORIZED,
                 Json(json!({
-                    "error": "Invalid or expired OTP",
-                    "details": e.to_string()
+                    "error": "Invalid or expired OTP"
                 })),
             ))
         }

@@ -10,15 +10,17 @@ use serde::{Deserialize, Serialize};
 /// JWT claims structure (must match services::auth::Claims)
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Claims {
-    pub sub: String,       // tenant_id
+    pub sub: String,       // tenant_id (UUID)
     pub email: String,     // email_address
     pub tenant_id: String, // tenant_identifier
+    pub jti: String,       // JWT ID for revocation
     pub exp: i64,          // expiration timestamp
     pub iat: i64,          // issued at timestamp
 }
 
 /// Authentication middleware - validates JWT tokens
 pub async fn auth_middleware(
+    axum::extract::State(state): axum::extract::State<std::sync::Arc<crate::AppState>>,
     headers: HeaderMap,
     mut req: Request,
     next: Next,
@@ -36,20 +38,25 @@ pub async fn auth_middleware(
 
     let token = &auth_header[7..];
 
-    // TODO: Get JWT secret from app state
-    let jwt_secret = std::env::var("MIGHTYDNS__AUTH__JWT_SECRET")
-        .unwrap_or_else(|_| "change-me-in-production".to_string());
-
     // Decode and validate JWT
     let token_data = decode::<Claims>(
         token,
-        &DecodingKey::from_secret(jwt_secret.as_bytes()),
+        &DecodingKey::from_secret(state.config.auth.jwt_secret.as_bytes()),
         &Validation::default(),
     )
     .map_err(|_| StatusCode::UNAUTHORIZED)?;
 
+    let claims = token_data.claims;
+
+    // Check if JWT has been revoked (logout)
+    let revoked_key = format!("revoked_jti:{}", claims.jti);
+    if let Ok(Some(_)) = state.cache.get::<String>(&revoked_key).await {
+        // Token has been revoked
+        return Err(StatusCode::UNAUTHORIZED);
+    }
+
     // Add claims to request extensions for handlers to access
-    req.extensions_mut().insert(token_data.claims);
+    req.extensions_mut().insert(claims);
 
     Ok(next.run(req).await)
 }

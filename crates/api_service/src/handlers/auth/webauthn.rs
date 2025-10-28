@@ -83,7 +83,7 @@ pub async fn register_start(
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(json!({
                     "error": "Failed to start registration",
-                    "details": e.to_string()
+                    "error": "Operation failed"
                 })),
             ))
         }
@@ -119,7 +119,7 @@ pub async fn register_finish(
                 StatusCode::BAD_REQUEST,
                 Json(json!({
                     "error": "Failed to complete registration",
-                    "details": e.to_string()
+                    "error": "Operation failed"
                 })),
             ))
         }
@@ -155,7 +155,7 @@ pub async fn login_start(
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(json!({
                     "error": "Failed to start login",
-                    "details": e.to_string()
+                    "error": "Operation failed"
                 })),
             ))
         }
@@ -193,7 +193,7 @@ pub async fn login_finish(
                 StatusCode::UNAUTHORIZED,
                 Json(json!({
                     "error": "Authentication failed",
-                    "details": e.to_string()
+                    "error": "Operation failed"
                 })),
             ))
         }

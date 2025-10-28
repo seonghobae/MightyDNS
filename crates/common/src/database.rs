@@ -806,13 +806,45 @@ impl Database {
 }
 
 /// Verify TOTP code against secret
-fn verify_totp_code(_secret: &str, _code: &str) -> bool {
-    // TODO: Implement actual TOTP verification
-    // For now, always return true for development
-    // In production, use totp-lite crate:
-    // let totp = totp_lite::totp_custom::<totp_lite::Sha1>(30, 6, secret.as_bytes(), time);
-    // totp == code
-    true
+fn verify_totp_code(secret: &str, code: &str) -> bool {
+    use totp_lite::{totp_custom, Sha1};
+
+    // Validate input
+    if secret.is_empty() || code.len() != 6 {
+        return false;
+    }
+
+    // Parse code to ensure it's numeric
+    if code.parse::<u32>().is_err() {
+        return false;
+    }
+
+    // Decode base32 secret (TOTP secrets are typically base32 encoded)
+    let secret_bytes = match data_encoding::BASE32_NOPAD.decode(secret.to_uppercase().as_bytes()) {
+        Ok(bytes) => bytes,
+        Err(_) => {
+            // If base32 decode fails, try using raw bytes
+            secret.as_bytes().to_vec()
+        }
+    };
+
+    // Get current Unix timestamp
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+
+    // Check current time window and ±1 window for clock skew tolerance
+    for time_offset in [-1i64, 0, 1] {
+        let time = (now as i64 + (time_offset * 30)) as u64;
+        let totp = totp_custom::<Sha1>(30, 6, &secret_bytes, time);
+
+        if totp == code {
+            return true;
+        }
+    }
+
+    false
 }
 
 #[cfg(test)]

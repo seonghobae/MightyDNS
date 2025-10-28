@@ -1,5 +1,6 @@
 use anyhow::Result;
 use axum::{
+    middleware as axum_middleware,
     routing::{get, post},
     Router,
 };
@@ -95,37 +96,36 @@ async fn main() -> Result<()> {
 
 /// Create the application router with all routes
 fn create_router(state: Arc<AppState>) -> Router {
-    Router::new()
-        // Health check
+    // Public routes (no authentication required)
+    let public_routes = Router::new()
         .route("/health", get(handlers::health::health_check))
         .route("/metrics", get(handlers::health::metrics))
-
-        // Authentication routes (passwordless)
         .route("/api/v1/auth/email/request", post(handlers::auth::email::request_otp))
         .route("/api/v1/auth/email/verify", post(handlers::auth::email::verify_otp))
         .route("/api/v1/auth/webauthn/register/start", post(handlers::auth::webauthn::register_start))
         .route("/api/v1/auth/webauthn/register/finish", post(handlers::auth::webauthn::register_finish))
         .route("/api/v1/auth/webauthn/login/start", post(handlers::auth::webauthn::login_start))
         .route("/api/v1/auth/webauthn/login/finish", post(handlers::auth::webauthn::login_finish))
-        .route("/api/v1/auth/totp/setup", post(handlers::auth::totp::setup_totp))
-        .route("/api/v1/auth/totp/verify", post(handlers::auth::totp::verify_totp))
-        .route("/api/v1/auth/logout", post(handlers::auth::logout))
+        .route("/api/v1/auth/totp/verify", post(handlers::auth::totp::verify_totp));
 
-        // Tenant routes (authenticated)
+    // Protected routes (authentication required)
+    let protected_routes = Router::new()
+        .route("/api/v1/auth/totp/setup", post(handlers::auth::totp::setup_totp))
+        .route("/api/v1/auth/logout", post(handlers::auth::logout))
         .route("/api/v1/tenant/profile", get(handlers::tenant::get_profile))
         .route("/api/v1/tenant/profile", post(handlers::tenant::update_profile))
-
-        // Blocklist & Whitelist management (authenticated)
         .route("/api/v1/blocklists", get(handlers::blocklist::get_blocklists))
         .route("/api/v1/whitelists", get(handlers::whitelist::get_whitelists))
         .route("/api/v1/whitelists", post(handlers::whitelist::add_whitelist))
         .route("/api/v1/whitelists/:id", axum::routing::delete(handlers::whitelist::delete_whitelist))
-
-        // Configuration management (authenticated)
         .route("/api/v1/config", get(handlers::config::get_config))
         .route("/api/v1/config", axum::routing::put(handlers::config::update_config))
+        .layer(axum_middleware::from_fn(middleware::auth::auth_middleware));
 
-        // Add state and middleware
+    // Merge all routes
+    Router::new()
+        .merge(public_routes)
+        .merge(protected_routes)
         .layer(CorsLayer::new().allow_origin(Any).allow_methods(Any).allow_headers(Any))
         .layer(TraceLayer::new_for_http())
         .with_state(state)

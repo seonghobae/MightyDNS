@@ -1,14 +1,14 @@
-use axum::{extract::State, http::StatusCode, Json};
+use axum::{extract::{Extension, State}, http::StatusCode, Json};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::sync::Arc;
 use tracing::{debug, error, info};
 
-use crate::AppState;
+use crate::{AppState, middleware::auth::Claims};
 
 #[derive(Debug, Deserialize)]
 pub struct SetupTotpRequest {
-    pub tenant_id: String,
+    // No tenant_id - extracted from authenticated JWT claims
 }
 
 #[derive(Debug, Serialize)]
@@ -36,20 +36,25 @@ pub struct VerifyTotpResponse {
 
 /// Setup TOTP for a tenant (requires prior authentication)
 /// POST /api/v1/auth/totp/setup
+/// Requires: Authorization header with valid JWT
 pub async fn setup_totp(
     State(state): State<Arc<AppState>>,
-    Json(payload): Json<SetupTotpRequest>,
+    Extension(claims): Extension<Claims>,
+    Json(_payload): Json<SetupTotpRequest>,
 ) -> Result<(StatusCode, Json<SetupTotpResponse>), (StatusCode, Json<Value>)> {
-    debug!("TOTP setup request for tenant: {}", payload.tenant_id);
+    // Extract tenant identifier from authenticated JWT claims
+    let tenant_identifier = &claims.tenant_id;
+
+    debug!("TOTP setup request for tenant: {}", tenant_identifier);
 
     // Setup TOTP through auth service
     match state
         .auth_service
-        .setup_totp(&payload.tenant_id)
+        .setup_totp(tenant_identifier)
         .await
     {
         Ok((secret, qr_url, account_name)) => {
-            info!("TOTP setup successful for tenant: {}", payload.tenant_id);
+            info!("TOTP setup successful for tenant: {}", tenant_identifier);
             Ok((
                 StatusCode::OK,
                 Json(SetupTotpResponse {
@@ -66,8 +71,7 @@ pub async fn setup_totp(
             Err((
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(json!({
-                    "error": "Failed to setup TOTP",
-                    "details": e.to_string()
+                    "error": "Failed to setup TOTP"
                 })),
             ))
         }
@@ -111,8 +115,7 @@ pub async fn verify_totp(
             Err((
                 StatusCode::UNAUTHORIZED,
                 Json(json!({
-                    "error": "Invalid TOTP code",
-                    "details": e.to_string()
+                    "error": "Invalid TOTP code"
                 })),
             ))
         }

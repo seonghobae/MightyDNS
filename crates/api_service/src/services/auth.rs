@@ -12,9 +12,10 @@ use uuid::Uuid;
 /// JWT claims structure
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Claims {
-    pub sub: String,       // tenant_id
+    pub sub: String,       // tenant_id (UUID)
     pub email: String,     // email_address
     pub tenant_id: String, // tenant_identifier
+    pub jti: String,       // JWT ID for revocation
     pub exp: i64,          // expiration timestamp
     pub iat: i64,          // issued at timestamp
 }
@@ -287,10 +288,14 @@ impl AuthService {
         let now = Utc::now();
         let exp = now + Duration::hours(self.config.auth.jwt_expiry_hours);
 
+        // Generate unique JWT ID for revocation support
+        let jti = Uuid::new_v4().to_string();
+
         let claims = Claims {
             sub: tenant.tenant_id.to_string(),
             email: tenant.email_address.clone(),
             tenant_id: tenant.tenant_identifier.clone(),
+            jti,
             exp: exp.timestamp(),
             iat: now.timestamp(),
         };
