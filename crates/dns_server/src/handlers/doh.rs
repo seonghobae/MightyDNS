@@ -78,8 +78,8 @@ async fn handle_doh_get(
             error!("Failed to parse DNS message: {}", e);
             return (
                 StatusCode::BAD_REQUEST,
-                "application/dns-message",
-                vec![],
+                [(CONTENT_TYPE, HeaderValue::from_static("application/dns-message"))],
+                Vec::<u8>::new(),
             )
                 .into_response();
         }
@@ -94,8 +94,8 @@ async fn handle_doh_get(
                     error!("Failed to serialize DNS response: {}", e);
                     return (
                         StatusCode::INTERNAL_SERVER_ERROR,
-                        "application/dns-message",
-                        vec![],
+                        [(CONTENT_TYPE, HeaderValue::from_static("application/dns-message"))],
+                        Vec::<u8>::new(),
                     )
                         .into_response();
                 }
@@ -107,8 +107,8 @@ async fn handle_doh_get(
             error!("DNS query resolution failed: {}", e);
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                "application/dns-message",
-                vec![],
+                [(CONTENT_TYPE, HeaderValue::from_static("application/dns-message"))],
+                Vec::<u8>::new(),
             )
                 .into_response()
         }
@@ -130,8 +130,8 @@ async fn handle_doh_post(
             error!("Failed to parse DNS message: {}", e);
             return (
                 StatusCode::BAD_REQUEST,
-                "application/dns-message",
-                vec![],
+                [(CONTENT_TYPE, HeaderValue::from_static("application/dns-message"))],
+                Vec::<u8>::new(),
             )
                 .into_response();
         }
@@ -146,8 +146,8 @@ async fn handle_doh_post(
                     error!("Failed to serialize DNS response: {}", e);
                     return (
                         StatusCode::INTERNAL_SERVER_ERROR,
-                        "application/dns-message",
-                        vec![],
+                        [(CONTENT_TYPE, HeaderValue::from_static("application/dns-message"))],
+                        Vec::<u8>::new(),
                     )
                         .into_response();
                 }
@@ -159,8 +159,8 @@ async fn handle_doh_post(
             error!("DNS query resolution failed: {}", e);
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                "application/dns-message",
-                vec![],
+                [(CONTENT_TYPE, HeaderValue::from_static("application/dns-message"))],
+                Vec::<u8>::new(),
             )
                 .into_response()
         }

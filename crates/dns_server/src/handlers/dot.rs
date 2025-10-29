@@ -15,26 +15,33 @@ pub async fn serve(state: Arc<AppState>) -> anyhow::Result<()> {
     let port = state.config.dns.dot_port;
     let listener = TcpListener::bind(format!("0.0.0.0:{}", port)).await?;
 
-    // Try to load TLS configuration
+    // Load TLS configuration (required for DoT protocol)
     let tls_acceptor = match (&state.config.dns.tls_cert_path, &state.config.dns.tls_key_path) {
         (Some(cert_path), Some(key_path)) => {
             match load_tls_config(cert_path, key_path) {
                 Ok(acceptor) => {
                     info!("DoT server listening on port {} with TLS enabled", port);
-                    Some(acceptor)
+                    acceptor
                 }
                 Err(e) => {
-                    warn!("Failed to load TLS certificates: {}. DoT server will run WITHOUT TLS.", e);
-                    warn!("For production, configure valid TLS certificates");
-                    None
+                    // CRITICAL: DoT requires TLS by protocol definition (RFC 7858)
+                    // Running without TLS defeats the security purpose of DoT
+                    if state.config.environment == "production" {
+                        anyhow::bail!("CRITICAL: Cannot start DoT server without TLS in production. Error: {}", e);
+                    } else {
+                        warn!("DoT TLS failed in {} environment: {}", state.config.environment, e);
+                        warn!("Falling back to non-TLS mode for development only");
+                        warn!("Set MIGHTYDNS__DNS__TLS_CERT_PATH and MIGHTYDNS__DNS__TLS_KEY_PATH for TLS");
+                        anyhow::bail!("DoT server requires TLS configuration. Error: {}", e);
+                    }
                 }
             }
         }
         _ => {
-            warn!("DoT server starting WITHOUT TLS (certificates not configured)");
-            warn!("For production, set MIGHTYDNS__DNS__TLS_CERT_PATH and MIGHTYDNS__DNS__TLS_KEY_PATH");
-            info!("DoT server listening on port {} (TLS disabled)", port);
-            None
+            // CRITICAL: TLS certificates are not configured
+            anyhow::bail!(
+                "DoT server requires TLS certificates. Set MIGHTYDNS__DNS__TLS_CERT_PATH and MIGHTYDNS__DNS__TLS_KEY_PATH environment variables. DoT (DNS over TLS) protocol requires encryption by design (RFC 7858)."
+            );
         }
     };
 
@@ -48,25 +55,18 @@ pub async fn serve(state: Arc<AppState>) -> anyhow::Result<()> {
         };
 
         let state = state.clone();
-        let tls_acceptor = tls_acceptor.clone();
+        let acceptor = tls_acceptor.clone();
 
         tokio::spawn(async move {
-            if let Some(acceptor) = tls_acceptor {
-                // TLS connection
-                match acceptor.accept(stream).await {
-                    Ok(tls_stream) => {
-                        if let Err(e) = handle_dot_connection_generic(state, tls_stream, addr).await {
-                            error!("DoT TLS connection error from {}: {}", addr, e);
-                        }
-                    }
-                    Err(e) => {
-                        error!("TLS handshake failed from {}: {}", addr, e);
+            // DoT always uses TLS (no fallback)
+            match acceptor.accept(stream).await {
+                Ok(tls_stream) => {
+                    if let Err(e) = handle_dot_connection_generic(state, tls_stream, addr).await {
+                        error!("DoT TLS connection error from {}: {}", addr, e);
                     }
                 }
-            } else {
-                // Non-TLS connection (fallback)
-                if let Err(e) = handle_dot_connection_generic(state, stream, addr).await {
-                    error!("DoT connection error from {}: {}", addr, e);
+                Err(e) => {
+                    error!("TLS handshake failed from {}: {}", addr, e);
                 }
             }
         });
@@ -116,9 +116,20 @@ where
 {
     debug!("DoT connection from {}", addr);
 
-    // TODO: Extract tenant ID from SNI (TLS Server Name Indication)
-    // For now, use a placeholder tenant
-    let tenant_id = "default".to_string();
+    // CRITICAL TODO: Extract tenant ID from SNI (TLS Server Name Indication)
+    // Current implementation uses hardcoded tenant, breaking multi-tenant isolation
+    //
+    // RFC 7858 (DoT) with RFC 6066 (SNI) allows client to specify domain name in TLS handshake.
+    // Proper implementation:
+    // 1. Extract SNI from TLS handshake (e.g., "tenant123.dns.example.com")
+    // 2. Parse subdomain to get tenant identifier
+    // 3. Validate tenant exists and is active
+    // 4. If no SNI or invalid tenant, reject with REFUSED
+    //
+    // For now, REJECTING queries instead of using unsafe "default" tenant
+    // This maintains security over functionality
+    error!("DoT connection from {} - SNI-based tenant identification not yet implemented", addr);
+    anyhow::bail!("DoT multi-tenant support requires SNI implementation. Connection rejected to maintain tenant isolation.");
 
     loop {
         // Read 2-byte length prefix

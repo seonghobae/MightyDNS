@@ -55,9 +55,17 @@ async fn handle_udp_query(
     let tenant_id = match tenant_info {
         Some((tenant, _)) => tenant.tenant_identifier,
         None => {
-            // No tenant binding for this IP - use default or reject
-            debug!("No tenant binding for IP {}, using default", src_addr.ip());
-            "default".to_string()
+            // Security: Reject queries from unbound IPs to maintain tenant isolation
+            // Clients must register their IP binding through the API first
+            warn!("Rejected DNS query from unbound IP: {}", src_addr.ip());
+
+            // Send REFUSED response
+            let mut refused_response = dns_query.clone();
+            refused_response.set_response_code(hickory_proto::op::ResponseCode::Refused);
+            let response_bytes = refused_response.to_vec()?;
+            socket.send_to(&response_bytes, src_addr).await?;
+
+            return Ok(());
         }
     };
 
