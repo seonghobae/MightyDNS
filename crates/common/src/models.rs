@@ -175,6 +175,7 @@ pub struct AuthCredential {
     pub credential_type: CredentialType,
     pub credential_public_key: Option<Vec<u8>>,
     pub credential_counter: i64,
+    #[serde(skip_serializing)]
     pub totp_secret_key: Option<String>,
     pub credential_name: Option<String>,
     pub credential_created_at: DateTime<Utc>,
@@ -194,6 +195,7 @@ pub enum CredentialType {
 pub struct AuthSession {
     pub session_id: Uuid,
     pub tenant_id: Uuid,
+    #[serde(skip_serializing)]
     pub session_token_hash: String,
     pub session_ip_address: String,
     pub session_user_agent: Option<String>,
@@ -231,7 +233,7 @@ pub struct AnalyticsHourlySummary {
     pub total_query_count: i64,
     pub blocked_query_count: i64,
     pub whitelisted_query_count: i64,
-    pub avg_query_latency_ms: Option<i16>,
+    pub avg_query_latency_ms: Option<i32>,  // i32 to avoid overflow, aligns with DnsQueryLog
     pub top_blocked_domains: Option<serde_json::Value>,
     pub top_allowed_domains: Option<serde_json::Value>,
 }
