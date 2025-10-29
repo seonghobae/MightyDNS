@@ -16,6 +16,7 @@ pub struct ServerConfig {
     pub host: String,
     pub port: u16,
     pub workers: usize,
+    pub metrics_port: u16,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -82,6 +83,7 @@ impl Default for ServerConfig {
             host: "0.0.0.0".into(),
             port: 8080,
             workers: num_cpus::get().max(1),
+            metrics_port: 9090,
         }
     }
 }

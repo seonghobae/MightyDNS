@@ -66,13 +66,14 @@ async fn main() -> Result<()> {
     let udp_handle = tokio::spawn(handlers::udp::serve(state.clone()));
 
     // Spawn metrics server
-    let metrics_handle = tokio::spawn(serve_metrics());
+    let metrics_port = config.server.metrics_port;
+    let metrics_handle = tokio::spawn(serve_metrics(metrics_port));
 
     info!("All DNS servers started successfully");
     info!("  DoH: https://0.0.0.0:{}/dns-query/{{tenant_id}}", config.dns.doh_port);
     info!("  DoT: tls://0.0.0.0:{}",  config.dns.dot_port);
     info!("  UDP: udp://0.0.0.0:{}", config.dns.udp_port);
-    info!("  Metrics: http://0.0.0.0:9090/metrics");
+    info!("  Metrics: http://0.0.0.0:{}/metrics", metrics_port);
 
     // Wait for shutdown signal (Ctrl+C or SIGTERM for containerized deployments)
     let ctrl_c = async {
@@ -112,14 +113,15 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-/// Serve Prometheus metrics on port 9090
-async fn serve_metrics() -> Result<()> {
+/// Serve Prometheus metrics on configurable port (default: 9090)
+async fn serve_metrics(port: u16) -> Result<()> {
     use axum::{routing::get, Router};
 
     let app = Router::new().route("/metrics", get(metrics_handler));
 
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:9090").await?;
-    info!("Metrics server listening on http://0.0.0.0:9090/metrics");
+    let addr = format!("0.0.0.0:{}", port);
+    let listener = tokio::net::TcpListener::bind(&addr).await?;
+    info!("Metrics server listening on http://{}/metrics", addr);
 
     axum::serve(listener, app).await?;
 
