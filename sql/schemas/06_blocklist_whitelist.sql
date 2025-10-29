@@ -54,20 +54,23 @@ CREATE INDEX idx_block_list_entry_source ON block_list_entry (source_id);
 -- GIN index for wildcard/fuzzy matching
 CREATE INDEX idx_block_list_entry_domain_gin ON block_list_entry USING gin (block_domain_name gin_trgm_ops);
 
--- White list entry table
+-- White list entry table (renamed columns for consistency with Rust models)
 CREATE TABLE white_list_entry (
-    white_entry_id uuid_identifier,
+    entry_id uuid_identifier,
     tenant_id UUID NOT NULL,
-    white_domain_name dns_domain_name NOT NULL,
-    white_reason VARCHAR(255),
-    white_added_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
-    is_white_active BOOLEAN DEFAULT TRUE NOT NULL,
+    config_id UUID NOT NULL,  -- Link to specific tenant configuration
+    entry_domain_name dns_domain_name NOT NULL,
+    entry_added_reason VARCHAR(255),
+    entry_created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+    is_entry_active BOOLEAN DEFAULT TRUE NOT NULL,
 
-    PRIMARY KEY (white_entry_id, tenant_id),
+    PRIMARY KEY (entry_id, tenant_id),
     CONSTRAINT fk_white_list_entry_tenant
         FOREIGN KEY (tenant_id) REFERENCES tenant_account(tenant_id) ON DELETE CASCADE,
-    CONSTRAINT uq_white_domain_per_tenant
-        UNIQUE (tenant_id, white_domain_name)
+    CONSTRAINT fk_white_list_entry_config
+        FOREIGN KEY (config_id) REFERENCES tenant_config(config_id) ON DELETE CASCADE,
+    CONSTRAINT uq_entry_domain_per_tenant
+        UNIQUE (tenant_id, entry_domain_name)
 ) PARTITION BY HASH (tenant_id);
 
 -- Create partitions
@@ -84,5 +87,6 @@ BEGIN
 END $$;
 
 CREATE INDEX idx_white_list_entry_tenant ON white_list_entry (tenant_id);
-CREATE INDEX idx_white_list_entry_domain ON white_list_entry (tenant_id, white_domain_name)
-    WHERE is_white_active = TRUE;
+CREATE INDEX idx_white_list_entry_domain ON white_list_entry (tenant_id, entry_domain_name)
+    WHERE is_entry_active = TRUE;
+CREATE INDEX idx_white_list_entry_config ON white_list_entry (config_id);
