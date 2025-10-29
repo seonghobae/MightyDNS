@@ -8,7 +8,7 @@ CREATE TABLE dns_query_log (
     query_type dns_query_type_enum NOT NULL,
     query_result_type dns_result_type_enum NOT NULL,
     response_ip_address INET,
-    query_latency_ms SMALLINT,
+    query_latency_ms INTEGER,  -- INTEGER to prevent overflow (SMALLINT max 32,767ms insufficient)
     query_source_protocol VARCHAR(10) CHECK (query_source_protocol IN ('doh', 'dot', 'udp', 'tcp')),
     query_source_ip INET,
 
@@ -38,7 +38,7 @@ SELECT
     COUNT(*) AS total_query_count,
     COUNT(*) FILTER (WHERE query_result_type = 'blocked') AS blocked_query_count,
     COUNT(*) FILTER (WHERE query_result_type = 'whitelisted') AS whitelisted_query_count,
-    AVG(query_latency_ms)::SMALLINT AS avg_query_latency_ms,
+    AVG(query_latency_ms)::INTEGER AS avg_query_latency_ms,  -- INTEGER to match query_latency_ms type
     jsonb_agg(DISTINCT query_domain_name ORDER BY query_domain_name LIMIT 10)
         FILTER (WHERE query_result_type = 'blocked') AS top_blocked_domains,
     jsonb_agg(DISTINCT query_domain_name ORDER BY query_domain_name LIMIT 10)
