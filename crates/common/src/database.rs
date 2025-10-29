@@ -230,7 +230,7 @@ impl Database {
                 tc.config_description,
                 tc.is_logging_enabled,
                 tc.is_dnssec_enabled,
-                tc.blocked_response_ip::TEXT as "blocked_response_ip!",
+                tc.blocked_response_ip::TEXT as "blocked_response_ip?",
                 tc.config_created_at,
                 tc.config_updated_at,
                 tc.is_config_active
