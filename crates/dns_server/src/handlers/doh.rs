@@ -23,8 +23,8 @@ pub struct DohQueryParams {
 /// Serve DNS over HTTPS (DoH) on specified port
 pub async fn serve(state: Arc<AppState>) -> anyhow::Result<()> {
     let app = Router::new()
-        .route("/dns-query/:tenant_id", get(handle_doh_get))
-        .route("/dns-query/:tenant_id", post(handle_doh_post))
+        .route("/dns-query/:tenant_identifier", get(handle_doh_get))
+        .route("/dns-query/:tenant_identifier", post(handle_doh_post))
         .route("/health", get(health_check))
         .with_state(state.clone());
 
@@ -40,11 +40,11 @@ pub async fn serve(state: Arc<AppState>) -> anyhow::Result<()> {
 
 /// Handle GET requests (RFC 8484 - query in URL parameter)
 async fn handle_doh_get(
-    Path(tenant_id): Path<String>,
+    Path(tenant_identifier): Path<String>,
     Query(params): Query<DohQueryParams>,
     State(state): State<Arc<AppState>>,
 ) -> impl IntoResponse {
-    debug!("DoH GET request for tenant: {}", tenant_id);
+    debug!("DoH GET request for tenant: {}", tenant_identifier);
 
     // Extract DNS query from URL parameter
     let dns_query_bytes = match params.dns {
@@ -86,7 +86,7 @@ async fn handle_doh_get(
     };
 
     // Resolve DNS query
-    match resolver::resolve_dns_query(&state, &tenant_id, dns_message, "doh").await {
+    match resolver::resolve_dns_query(&state, &tenant_identifier, dns_message, "doh").await {
         Ok(response) => {
             let response_bytes = match response.to_vec() {
                 Ok(bytes) => bytes,
@@ -117,11 +117,11 @@ async fn handle_doh_get(
 
 /// Handle POST requests (RFC 8484 - query in body)
 async fn handle_doh_post(
-    Path(tenant_id): Path<String>,
+    Path(tenant_identifier): Path<String>,
     State(state): State<Arc<AppState>>,
     body: Bytes,
 ) -> impl IntoResponse {
-    debug!("DoH POST request for tenant: {}, body size: {} bytes", tenant_id, body.len());
+    debug!("DoH POST request for tenant: {}, body size: {} bytes", tenant_identifier, body.len());
 
     // Parse DNS message from body
     let dns_message = match Message::from_vec(&body) {
@@ -138,7 +138,7 @@ async fn handle_doh_post(
     };
 
     // Resolve DNS query
-    match resolver::resolve_dns_query(&state, &tenant_id, dns_message, "doh").await {
+    match resolver::resolve_dns_query(&state, &tenant_identifier, dns_message, "doh").await {
         Ok(response) => {
             let response_bytes = match response.to_vec() {
                 Ok(bytes) => bytes,

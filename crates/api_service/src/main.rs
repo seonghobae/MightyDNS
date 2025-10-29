@@ -49,15 +49,21 @@ async fn main() -> Result<()> {
 
     // Initialize database
     let database = Database::new(&config.database).await?;
-    info!("Database connection pool initialized");
+    // Startup health check: Verify database connectivity (fail-fast)
+    database.health_check().await?;
+    info!("Database connection pool initialized and healthy");
 
     // Initialize cache manager
     let cache = CacheManager::new(config.clone(), database.clone()).await?;
-    info!("Cache manager initialized");
+    // Startup health check: Verify Valkey/cache connectivity (fail-fast)
+    cache.health_check().await?;
+    info!("Cache manager initialized and healthy");
 
     // Initialize NATS client
     let nats = NatsClient::new(&config.nats).await?;
-    info!("NATS client connected");
+    // Startup health check: Verify NATS connectivity (fail-fast)
+    nats.health_check().await?;
+    info!("NATS client connected and healthy");
 
     // Initialize authentication service
     let auth_service = Arc::new(services::auth::AuthService::new(

@@ -74,14 +74,31 @@ async fn main() -> Result<()> {
     info!("  UDP: udp://0.0.0.0:{}", config.dns.udp_port);
     info!("  Metrics: http://0.0.0.0:9090/metrics");
 
-    // Wait for shutdown signal
-    match signal::ctrl_c().await {
-        Ok(()) => {
-            info!("Shutdown signal received, gracefully shutting down...");
-        }
-        Err(err) => {
-            warn!("Unable to listen for shutdown signal: {}", err);
-        }
+    // Wait for shutdown signal (Ctrl+C or SIGTERM for containerized deployments)
+    let ctrl_c = async {
+        signal::ctrl_c()
+            .await
+            .expect("Failed to install Ctrl+C handler");
+    };
+
+    #[cfg(unix)]
+    let terminate = async {
+        signal::unix::signal(signal::unix::SignalKind::terminate())
+            .expect("Failed to install SIGTERM handler")
+            .recv()
+            .await;
+    };
+
+    #[cfg(not(unix))]
+    let terminate = std::future::pending::<()>();
+
+    tokio::select! {
+        _ = ctrl_c => {
+            info!("Received Ctrl+C signal, gracefully shutting down...");
+        },
+        _ = terminate => {
+            info!("Received SIGTERM signal, gracefully shutting down...");
+        },
     }
 
     // Graceful shutdown (abort all tasks)
