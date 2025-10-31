@@ -1,7 +1,7 @@
 mod handlers;
 mod resolver;
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, Result};
 use common::{cache::Cache, config::Config, database::Database, nats_client::NatsClient};
 use std::sync::Arc;
 use tokio::signal;
@@ -36,7 +36,10 @@ async fn main() -> Result<()> {
     let database = Database::new(&config.database)
         .await
         .expect("Failed to connect to database");
-    database.health_check().await.expect("Database health check failed");
+    database
+        .health_check()
+        .await
+        .expect("Database health check failed");
     info!("Database connected");
 
     // Initialize cache
@@ -74,7 +77,7 @@ async fn main() -> Result<()> {
         "  DoH: 0.0.0.0:{}/dns-query/{{tenant_id}} (scheme depends on TLS termination)",
         config.dns.doh_port
     );
-    info!("  DoT: tls://0.0.0.0:{}",  config.dns.dot_port);
+    info!("  DoT: tls://0.0.0.0:{}", config.dns.dot_port);
     info!("  UDP: udp://0.0.0.0:{}", config.dns.udp_port);
     info!("  Metrics: http://0.0.0.0:{}/metrics", metrics_port);
 
@@ -96,42 +99,34 @@ async fn main() -> Result<()> {
     #[cfg(not(unix))]
     let terminate = std::future::pending::<()>();
 
-    enum ShutdownSignal {
-        Graceful,
-        TaskFailed {
-            task: &'static str,
-            result: Result<Result<(), anyhow::Error>, tokio::task::JoinError>,
-        },
-    }
-
-    let shutdown_signal = tokio::select! {
+    let shutdown_result: Result<()> = tokio::select! {
         _ = ctrl_c => {
             info!("Received Ctrl+C signal, gracefully shutting down...");
-            ShutdownSignal::Graceful
+            Ok(())
         },
         _ = terminate => {
             info!("Received SIGTERM signal, gracefully shutting down...");
-            ShutdownSignal::Graceful
+            Ok(())
         },
         res = &mut doh_handle => {
             error!("DoH task exited unexpectedly: {:?}", res);
             error!("Shutting down all services due to DoH failure");
-            ShutdownSignal::TaskFailed { task: "DoH", result: res }
+            Err(task_failure_error("DoH", res))
         },
         res = &mut dot_handle => {
             error!("DoT task exited unexpectedly: {:?}", res);
             error!("Shutting down all services due to DoT failure");
-            ShutdownSignal::TaskFailed { task: "DoT", result: res }
+            Err(task_failure_error("DoT", res))
         },
         res = &mut udp_handle => {
             error!("UDP task exited unexpectedly: {:?}", res);
             error!("Shutting down all services due to UDP failure");
-            ShutdownSignal::TaskFailed { task: "UDP", result: res }
+            Err(task_failure_error("UDP", res))
         },
         res = &mut metrics_handle => {
             error!("Metrics task exited unexpectedly: {:?}", res);
             error!("Shutting down all services due to Metrics failure");
-            ShutdownSignal::TaskFailed { task: "Metrics", result: res }
+            Err(task_failure_error("Metrics", res))
         },
     };
 
@@ -143,17 +138,7 @@ async fn main() -> Result<()> {
 
     info!("MightyDNS Server shutdown complete");
 
-    match shutdown_signal {
-        ShutdownSignal::Graceful => Ok(()),
-        ShutdownSignal::TaskFailed { task, result } => {
-            let err = match result {
-                Ok(Ok(())) => anyhow!("{task} task exited unexpectedly without error"),
-                Ok(Err(err)) => err.context(format!("{task} task returned error")),
-                Err(join_err) => anyhow!("{task} task join error: {join_err}"),
-            };
-            Err(err)
-        }
-    }
+    shutdown_result
 }
 
 /// Serve Prometheus metrics on configurable port (default: 9090)
@@ -174,5 +159,22 @@ async fn serve_metrics(port: u16) -> Result<()> {
 async fn metrics_handler() -> impl axum::response::IntoResponse {
     use axum::{http::header, response::IntoResponse};
     let body = common::metrics::metrics_handler();
-    ([(header::CONTENT_TYPE, "text/plain; version=0.0.4; charset=utf-8")], body)
+    (
+        [(
+            header::CONTENT_TYPE,
+            "text/plain; version=0.0.4; charset=utf-8",
+        )],
+        body,
+    )
+}
+
+fn task_failure_error(
+    task: &'static str,
+    result: std::result::Result<anyhow::Result<()>, tokio::task::JoinError>,
+) -> anyhow::Error {
+    match result {
+        Ok(Ok(())) => anyhow!("{task} task exited unexpectedly without error"),
+        Ok(Err(err)) => anyhow!("{task} task returned error: {err:?}"),
+        Err(join_err) => anyhow!("{task} task join error: {join_err}"),
+    }
 }
