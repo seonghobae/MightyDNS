@@ -1,7 +1,7 @@
 mod handlers;
 mod resolver;
 
-use anyhow::Result;
+use anyhow::{anyhow, Context, Result};
 use common::{cache::Cache, config::Config, database::Database, nats_client::NatsClient};
 use std::sync::Arc;
 use tokio::signal;
@@ -96,30 +96,44 @@ async fn main() -> Result<()> {
     #[cfg(not(unix))]
     let terminate = std::future::pending::<()>();
 
-    tokio::select! {
+    enum ShutdownSignal {
+        Graceful,
+        TaskFailed {
+            task: &'static str,
+            result: Result<Result<(), anyhow::Error>, tokio::task::JoinError>,
+        },
+    }
+
+    let shutdown_signal = tokio::select! {
         _ = ctrl_c => {
             info!("Received Ctrl+C signal, gracefully shutting down...");
+            ShutdownSignal::Graceful
         },
         _ = terminate => {
             info!("Received SIGTERM signal, gracefully shutting down...");
+            ShutdownSignal::Graceful
         },
         res = &mut doh_handle => {
             error!("DoH task exited unexpectedly: {:?}", res);
             error!("Shutting down all services due to DoH failure");
+            ShutdownSignal::TaskFailed { task: "DoH", result: res }
         },
         res = &mut dot_handle => {
             error!("DoT task exited unexpectedly: {:?}", res);
             error!("Shutting down all services due to DoT failure");
+            ShutdownSignal::TaskFailed { task: "DoT", result: res }
         },
         res = &mut udp_handle => {
             error!("UDP task exited unexpectedly: {:?}", res);
             error!("Shutting down all services due to UDP failure");
+            ShutdownSignal::TaskFailed { task: "UDP", result: res }
         },
         res = &mut metrics_handle => {
             error!("Metrics task exited unexpectedly: {:?}", res);
             error!("Shutting down all services due to Metrics failure");
+            ShutdownSignal::TaskFailed { task: "Metrics", result: res }
         },
-    }
+    };
 
     // Graceful shutdown (abort all tasks)
     doh_handle.abort();
@@ -129,7 +143,17 @@ async fn main() -> Result<()> {
 
     info!("MightyDNS Server shutdown complete");
 
-    Ok(())
+    match shutdown_signal {
+        ShutdownSignal::Graceful => Ok(()),
+        ShutdownSignal::TaskFailed { task, result } => {
+            let err = match result {
+                Ok(Ok(())) => anyhow!("{task} task exited unexpectedly without error"),
+                Ok(Err(err)) => err.context(format!("{task} task returned error")),
+                Err(join_err) => anyhow!("{task} task join error: {join_err}"),
+            };
+            Err(err)
+        }
+    }
 }
 
 /// Serve Prometheus metrics on configurable port (default: 9090)
