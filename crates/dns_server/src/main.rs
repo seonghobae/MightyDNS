@@ -5,7 +5,7 @@ use anyhow::Result;
 use common::{cache::Cache, config::Config, database::Database, nats_client::NatsClient};
 use std::sync::Arc;
 use tokio::signal;
-use tracing::{info, warn};
+use tracing::{error, info, warn};
 
 /// Shared application state
 pub struct AppState {
