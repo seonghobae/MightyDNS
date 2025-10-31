@@ -1,0 +1,86 @@
+[workspace]
+members = [
+    "crates/dns_server",
+    "crates/api_service",
+    "crates/common",
+    "crates/workers",
+]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+authors = ["MightyDNS Team"]
+license = "MIT"
+
+[workspace.dependencies]
+# Async runtime
+tokio = { version = "1.35", features = ["full"] }
+tokio-util = "0.7"
+
+# DNS libraries
+hickory-server = "0.24"
+hickory-proto = "0.24"
+hickory-client = "0.24"
+hickory-resolver = "0.24"
+
+# Web framework
+axum = { version = "0.7", features = ["macros", "ws"] }
+tower = "0.4"
+tower-http = { version = "0.5", features = ["cors", "compression-gzip", "trace"] }
+
+# TLS
+rustls = "0.22"
+tokio-rustls = "0.25"
+rustls-pemfile = "2.0"
+
+# Database
+sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "postgres", "uuid", "chrono", "json"] }
+deadpool-postgres = "0.12"
+
+# Valkey (Redis-compatible, BSD-3-Clause licensed)
+redis = { version = "0.24", features = ["tokio-comp", "cluster-async"] }  # Compatible with Valkey
+deadpool-redis = "0.14"  # Connection pooling for Valkey
+
+# NATS
+async-nats = "0.33"
+
+# Authentication
+jsonwebtoken = "9.2"
+webauthn-rs = "0.4"
+totp-lite = "2.0"
+argon2 = "0.5"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+base64 = "0.21"
+
+# Utilities
+uuid = { version = "1.6", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+rand = "0.8"
+thiserror = "1.0"
+anyhow = "1.0"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+
+# Metrics
+prometheus = { version = "0.13", features = ["process"] }
+lazy_static = "1.4"
+
+# Configuration
+config = "0.14"
+dotenvy = "0.15"
+
+# HTTP client
+reqwest = { version = "0.11", features = ["json", "rustls-tls"] }
+
+# Caching
+moka = { version = "0.12", features = ["future"] }
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+strip = true

@@ -1,0 +1,49 @@
+[package]
+name = "common"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+# Async runtime
+tokio.workspace = true
+
+# Database & Cache
+sqlx.workspace = true
+redis.workspace = true
+deadpool-redis.workspace = true
+
+# NATS
+async-nats.workspace = true
+
+# Serialization
+serde.workspace = true
+serde_json.workspace = true
+
+# Utilities
+uuid.workspace = true
+chrono.workspace = true
+thiserror.workspace = true
+anyhow.workspace = true
+tracing.workspace = true
+
+# Metrics
+prometheus.workspace = true
+lazy_static.workspace = true
+
+# Caching
+moka.workspace = true
+
+# Configuration
+config.workspace = true
+
+# System
+num_cpus = "1.16"
+
+# Cryptography
+sha2 = "0.10"
+hmac = "0.12"
+totp-lite = "2.0"
+data-encoding = "2.5"
+subtle = "2.5"

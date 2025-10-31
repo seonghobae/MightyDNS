@@ -1,0 +1,63 @@
+[package]
+name = "api_service"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+# Workspace dependencies
+common = { path = "../common" }
+
+# Async runtime
+tokio.workspace = true
+
+# Web framework
+axum.workspace = true
+tower.workspace = true
+tower-http.workspace = true
+
+# Database & Cache
+sqlx.workspace = true
+redis.workspace = true
+deadpool-redis.workspace = true
+
+# NATS
+async-nats.workspace = true
+
+# Authentication
+jsonwebtoken.workspace = true
+webauthn-rs.workspace = true
+totp-lite.workspace = true
+argon2.workspace = true
+
+# Serialization
+serde.workspace = true
+serde_json.workspace = true
+base64.workspace = true
+
+# Utilities
+uuid.workspace = true
+chrono.workspace = true
+thiserror.workspace = true
+anyhow.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+
+# Metrics
+prometheus.workspace = true
+lazy_static.workspace = true
+
+# HTTP client (for webhooks)
+reqwest.workspace = true
+
+# Configuration
+config.workspace = true
+dotenvy.workspace = true
+
+# URL encoding
+urlencoding = "2.1"
+
+# Rate limiting
+tower-governor = "0.4"
+rand = "0.8"

@@ -1,0 +1,196 @@
+use axum::{
+    extract::Request,
+    http::{header::AUTHORIZATION, HeaderMap, StatusCode},
+    middleware::Next,
+    response::Response,
+};
+use jsonwebtoken::{decode, Algorithm, DecodingKey, Validation};
+use serde::{Deserialize, Serialize};
+
+/// JWT claims structure (must match services::auth::Claims)
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Claims {
+    pub sub: String,       // tenant_id (UUID)
+    pub email: String,     // email_address
+    #[serde(rename = "tenant_id")]
+    pub tenant_identifier: String, // tenant_identifier (renamed for clarity)
+    pub jti: String,       // JWT ID for revocation
+    pub exp: i64,          // expiration timestamp
+    pub iat: i64,          // issued at timestamp
+}
+
+/// Authentication middleware - validates JWT tokens
+pub async fn auth_middleware(
+    axum::extract::State(state): axum::extract::State<std::sync::Arc<crate::AppState>>,
+    mut req: Request,
+    next: Next,
+) -> Result<Response, StatusCode> {
+    // Extract Authorization header
+    let auth_header = req
+        .headers()
+        .get(AUTHORIZATION)
+        .and_then(|h| h.to_str().ok())
+        .ok_or(StatusCode::UNAUTHORIZED)?;
+
+    // Check for Bearer token
+    if !auth_header.starts_with("Bearer ") {
+        return Err(StatusCode::UNAUTHORIZED);
+    }
+
+    let token = auth_header[7..].trim();
+
+    // Decode and validate JWT with explicit algorithm
+    let mut validation = Validation::new(Algorithm::HS256);
+    validation.validate_exp = true;
+
+    let token_data = decode::<Claims>(
+        token,
+        &DecodingKey::from_secret(state.config.auth.jwt_secret.as_bytes()),
+        &validation,
+    )
+    .map_err(|_| StatusCode::UNAUTHORIZED)?;
+
+    let claims = token_data.claims;
+
+    // Check if JWT has been revoked (logout)
+    let revoked_key = format!("auth:revoked_jti:{}", claims.jti);
+    if let Ok(Some(_)) = state.cache.get::<String>(&revoked_key).await {
+        // Token has been revoked
+        return Err(StatusCode::UNAUTHORIZED);
+    }
+
+    // Add claims to request extensions for handlers to access
+    req.extensions_mut().insert(claims);
+
+    Ok(next.run(req).await)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_claims_structure() {
+        let claims = Claims {
+            sub: "tenant-uuid".to_string(),
+            email: "user@example.com".to_string(),
+            tenant_identifier: "tenant123".to_string(),
+            jti: "test-jti-1".to_string(),
+            exp: 1234567890,
+            iat: 1234567800,
+        };
+
+        assert_eq!(claims.sub, "tenant-uuid");
+        assert_eq!(claims.email, "user@example.com");
+        assert_eq!(claims.tenant_identifier, "tenant123");
+        assert!(!claims.jti.is_empty());
+        assert!(claims.exp > claims.iat);
+    }
+
+    #[test]
+    fn test_claims_serialization() {
+        let claims = Claims {
+            sub: "sub-123".to_string(),
+            email: "test@test.com".to_string(),
+            tenant_identifier: "tid-456".to_string(),
+            jti: "test-jti-2".to_string(),
+            exp: 9999999999,
+            iat: 9999999000,
+        };
+
+        let json = serde_json::to_string(&claims).expect("Serialization failed");
+        assert!(json.contains("sub"));
+        assert!(json.contains("email"));
+        assert!(json.contains("tenant_id")); // serde renames tenant_identifier to tenant_id
+        assert!(json.contains("exp"));
+        assert!(json.contains("iat"));
+
+        let deserialized: Claims = serde_json::from_str(&json).expect("Deserialization failed");
+        assert_eq!(claims.sub, deserialized.sub);
+        assert_eq!(claims.email, deserialized.email);
+    }
+
+    #[test]
+    fn test_claims_clone() {
+        let claims = Claims {
+            sub: "test".to_string(),
+            email: "test@example.com".to_string(),
+            tenant_identifier: "tenant".to_string(),
+            jti: "test-jti-3".to_string(),
+            exp: 123456,
+            iat: 123400,
+        };
+
+        let cloned = claims.clone();
+        assert_eq!(claims.sub, cloned.sub);
+        assert_eq!(claims.email, cloned.email);
+        assert_eq!(claims.jti, cloned.jti);
+        assert_eq!(claims.exp, cloned.exp);
+    }
+
+    #[test]
+    fn test_claims_debug_format() {
+        let claims = Claims {
+            sub: "debug-test".to_string(),
+            email: "debug@test.com".to_string(),
+            tenant_identifier: "tid".to_string(),
+            jti: "test-jti-4".to_string(),
+            exp: 100,
+            iat: 50,
+        };
+
+        let debug_str = format!("{:?}", claims);
+        assert!(debug_str.contains("Claims"));
+        assert!(debug_str.contains("debug-test"));
+    }
+
+    #[test]
+    fn test_claims_with_timestamps() {
+        use chrono::Utc;
+
+        let now = Utc::now().timestamp();
+        let future = now + 3600;
+
+        let claims = Claims {
+            sub: "user-id".to_string(),
+            email: "user@example.com".to_string(),
+            tenant_identifier: "tenant-id".to_string(),
+            jti: "test-jti-5".to_string(),
+            exp: future,
+            iat: now,
+        };
+
+        assert!(claims.exp > claims.iat);
+        assert!(claims.exp - claims.iat <= 3600);
+    }
+
+    #[test]
+    fn test_claims_email_validation() {
+        let claims = Claims {
+            sub: "user".to_string(),
+            email: "valid@example.com".to_string(),
+            tenant_identifier: "tenant".to_string(),
+            jti: "test-jti-6".to_string(),
+            exp: 1000,
+            iat: 500,
+        };
+
+        assert!(claims.email.contains('@'));
+        assert!(claims.email.len() > 5);
+    }
+
+    #[test]
+    fn test_claims_tenant_id_not_empty() {
+        let claims = Claims {
+            sub: "user-sub".to_string(),
+            email: "user@test.com".to_string(),
+            tenant_identifier: "valid-tenant-id".to_string(),
+            jti: "test-jti-7".to_string(),
+            exp: 2000,
+            iat: 1000,
+        };
+
+        assert!(!claims.tenant_identifier.is_empty());
+        assert!(!claims.sub.is_empty());
+    }
+}
