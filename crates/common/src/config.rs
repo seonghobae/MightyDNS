@@ -198,8 +198,12 @@ mod tests {
         assert_eq!(config.database.connect_timeout_secs, 10);
         assert_eq!(config.database.idle_timeout_secs, 600);
         
-        // Valkey config
-        assert!(config.valkey.url.contains("valkey://"));
+        // Valkey/Redis config
+        assert!(
+            config.valkey.url.starts_with("redis://")
+                || config.valkey.url.starts_with("valkey://"),
+            "valkey.url should use redis:// (compatible) or valkey:// when supported"
+        );
         assert_eq!(config.valkey.pool_size, 100);
         assert_eq!(config.valkey.timeout_ms, 1000);
         
